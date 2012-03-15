@@ -4,7 +4,12 @@
 require_once('DynamicsCRM2011_Connector.class.php');
 require_once('DynamicsCRM2011_Incident.class.php');
 
-include 'DynamicsCRM2011.config.php';
+/* Make life easier for developers: Make a copy of the Config file locally, and
+ * name it DynamicsCRM2011.config.local.php - if found, it will be used in preference
+ * to the normal configuration details in the DynamicsCRM2011.config.php file 
+ */
+if (file_exists('DynamicsCRM2011.config.local.php')) include 'DynamicsCRM2011.config.local.php';
+else include 'DynamicsCRM2011.config.php';
 
 define('SKIP_DEMO1', TRUE);
 define('SKIP_DEMO2', TRUE);
