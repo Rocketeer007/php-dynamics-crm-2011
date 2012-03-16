@@ -1,8 +1,8 @@
 <?php
 /**
- * DynamicsCRM2011Connector.class.php
+ * DynamicsCRM2011_Connector.class.php
  * 
- * This file defines the DynamicsCRM2011Connector class that can be used to access
+ * This file defines the DynamicsCRM2011_Connector class that can be used to access
  * the Microsoft Dynamics 2011 system through SOAP calls from PHP.
  * 
  * @author Nick Price
@@ -53,7 +53,7 @@
  * Additionally, the returned data can be parsed in such a way that it can be used as 
  * simple PHP Objects, rather than complex XML to be parsed.
  */
-class DynamicsCRM2011_Connector {
+class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	/* Organization Details */
 	private $discoveryURI;
 	private $organizationUniqueName;
@@ -68,6 +68,7 @@ class DynamicsCRM2011_Connector {
 	/* Cached Organization data */
 	private $organizationDOM;
 	private $organizationSoapActions;
+	private $organizationCreateAction;
 	private $organizationExecuteAction;
 	private $organizationRetrieveAction;
 	private $organizationRetrieveMultipleAction;
@@ -320,6 +321,20 @@ class DynamicsCRM2011_Connector {
 		}
 		
 		return $this->organizationRetrieveAction;
+	}
+	
+	/**
+	 * Utility function to get the SoapAction for the Create method
+	 * @ignore
+	 */
+	private function getOrganizationCreateAction() {
+		/* If it's not cached, update the cache */
+		if ($this->organizationCreateAction == NULL) {
+			$actions = $this->getAllOrganizationSoapActions();
+			$this->organizationCreateAction = $actions['Create'];
+		}
+	
+		return $this->organizationCreateAction;
 	}
 	
 	/**
@@ -994,15 +1009,6 @@ class DynamicsCRM2011_Connector {
 	}
 	
 	/**
-	 * Utility function to strip any Namespace from an XML attribute value
-	 * @param String $attributeValue
-	 * @return String Attribute Value without the Namespace
-	 */
-	protected static function stripNS($attributeValue) {
-		return preg_replace('/[a-zA-Z]+:([a-zA-Z]+)/', '$1', $attributeValue);
-	}
-	
-	/**
 	 * Get the XML needed to send a login request to the Username & Password Trust service 
 	 * @ignore
 	 */
@@ -1088,7 +1094,9 @@ class DynamicsCRM2011_Connector {
 		/* Handle known Error Actions */
 		if ($actionString == 'http://schemas.microsoft.com/net/2005/12/windowscommunicationfoundation/dispatcher/fault'
 				|| $actionString == 'http://www.w3.org/2005/08/addressing/soap/fault'
-				|| $actionString == 'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/ExecuteOrganizationServiceFaultFault') {
+				|| $actionString == 'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/ExecuteOrganizationServiceFaultFault'
+				|| $actionString == 'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/CreateOrganizationServiceFaultFault'
+			) {
 			// Get the Fault Code
 			$faultCode = $responseDOM->getElementsByTagNameNS('http://www.w3.org/2003/05/soap-envelope', 'Envelope')->item(0)
 				->getElementsByTagNameNS('http://www.w3.org/2003/05/soap-envelope', 'Body')->item(0)
@@ -1319,7 +1327,7 @@ class DynamicsCRM2011_Connector {
 		/* We can use either the entityType (Logical Name), or the entityId, but not both. */
 		/* Use ID by preference, if not set, default to 0s */
 		if ($entityId != NULL) $entityType = NULL;
-		else $entityId = '00000000-0000-0000-0000-000000000000';
+		else $entityId = self::EmptyGUID;
 		
 		/* If no entityFilters are supplied, assume "All" */
 		if ($entityFilters == NULL) $entityFilters = 'Entity Attributes Privileges Relationships';
@@ -1986,6 +1994,61 @@ class DynamicsCRM2011_Connector {
 		$soapData = self::parseRetrieveEntityResponse($rawSoapResponse);
 		/* Return the structured object */
 		return $soapData;
+	}
+	
+	/**
+	 * Send a Create request to the Dynamics CRM 2011 server, and return the ID of the newly created Entity
+	 * 
+	 * @param DynamicsCRM2011_Entity $entity the Entity to create
+	 */
+	public function create(DynamicsCRM2011_Entity &$entity) {
+		/* Send the sequrity request and get a security token */
+		$securityToken = $this->getOrganizationSecurityToken();
+		/* Generate the XML for the Body of a Create request */
+		$createNode = self::generateCreateRequest($entity);
+		
+		echo PHP_EOL.'Create Request: '.PHP_EOL.$createNode->C14N().PHP_EOL.PHP_EOL;
+		
+		/* Turn this into a SOAP request, and send it */
+		$createRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationCreateAction(), $securityToken, $createNode);
+		$soapResponse = self::getSoapResponse($this->organizationURI, $createRequest);
+		
+		echo PHP_EOL.'Create Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
+		
+		/* Load the XML into a DOMDocument */
+		$soapResponseDOM = new DOMDocument();
+		$soapResponseDOM->loadXML($soapResponse);
+		
+		/* Find the CreateResponse */
+		$createResponseNode = NULL;
+		foreach ($soapResponseDOM->getElementsByTagName('CreateResponse') as $node) {
+			$createResponseNode = $node;
+			break;
+		}
+		unset($node);
+		if ($createResponseNode == NULL) {
+			throw new Exception('Could not find CreateResponse node in XML returned from Server');
+			return FALSE;
+		}
+		
+		/* Get the EntityID from the CreateResult tag */
+		$entityID = $createResponseNode->getElementsByTagName('CreateResult')->item(0)->textContent;
+		$entity->ID = $entityID;
+		$entity->reset();
+		return $entityID;
+	}
+	
+	/**
+	 * Generate a Create Request
+	 * @ignore
+	 */
+	protected static function generateCreateRequest(DynamicsCRM2011_Entity $entity) {
+		/* Generate the CreateRequest message */
+		$createRequestDOM = new DOMDocument();
+		$createNode = $createRequestDOM->appendChild($createRequestDOM->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts/Services', 'Create'));
+		$createNode->appendChild($createRequestDOM->importNode($entity->getEntityDOM(), true));
+		/* Return the DOMNode */
+		return $createNode;
 	}
 }
 

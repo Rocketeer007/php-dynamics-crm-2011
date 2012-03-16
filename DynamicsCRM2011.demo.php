@@ -1,8 +1,7 @@
 <?php
 
 /* Include the class library for the Dynamics CRM 2011 Connector */
-require_once('DynamicsCRM2011_Connector.class.php');
-require_once('DynamicsCRM2011_Incident.class.php');
+require_once 'DynamicsCRM2011.php';
 
 /* Make life easier for developers: Make a copy of the Config file locally, and
  * name it DynamicsCRM2011.config.local.php - if found, it will be used in preference
@@ -65,15 +64,15 @@ after receiving Login details (assuming the Object is kept for the entire
 session)
 *****************************************************************************/
 if (!defined('SKIP_DEMO1')) {
-/* Connect to the Dynamics CRM 2011 server */
-echo date('Y-m-d H:i:s')."\tConnecting to the CRM... ";
-$crmConnector = new DynamicsCRM2011_Connector($discoveryServiceURI, $organizationUniqueName);
-echo 'Done'.PHP_EOL;
-/* Here, you could ask the user for the login details... */
-echo date('Y-m-d H:i:s')."\tVerifying Security Details... ";
-$loginOkay = $crmConnector->setDiscoveryFederationSecurity($loginUsername, $loginPassword);
-if ($loginOkay) echo 'Login Okay!'.PHP_EOL;
-else echo 'Login Failed!'.PHP_EOL;
+	/* Connect to the Dynamics CRM 2011 server */
+	echo date('Y-m-d H:i:s')."\tConnecting to the CRM... ";
+	$crmConnector = new DynamicsCRM2011_Connector($discoveryServiceURI, $organizationUniqueName);
+	echo 'Done'.PHP_EOL;
+	/* Here, you could ask the user for the login details... */
+	echo date('Y-m-d H:i:s')."\tVerifying Security Details... ";
+	$loginOkay = $crmConnector->setDiscoveryFederationSecurity($loginUsername, $loginPassword);
+	if ($loginOkay) echo 'Login Okay!'.PHP_EOL;
+	else echo 'Login Failed!'.PHP_EOL;
 }
 
 /****************************************************************************
@@ -117,12 +116,12 @@ the pages until no more data remains to be fetched, and assembles it all
 into the one stdClass Object for ease of access.
 *****************************************************************************/
 if (!defined('SKIP_DEMO2')) {
-echo date('Y-m-d H:i:s')."\tFetching Account data... ";
-$accountData = $crmConnector->retrieveMultiple($accountQueryXML);
-echo 'Done'.PHP_EOL;
-foreach ($accountData->Entities as $account) {
-	echo "\t".'Account <'.$account->name.'> has ID {'.$account->accountid.'}'.PHP_EOL;
-}
+	echo date('Y-m-d H:i:s')."\tFetching Account data... ";
+	$accountData = $crmConnector->retrieveMultiple($accountQueryXML);
+	echo 'Done'.PHP_EOL;
+	foreach ($accountData->Entities as $account) {
+		echo "\t".'Account <'.$account->name.'> has ID {'.$account->accountid.'}'.PHP_EOL;
+	}
 }
 
 /* Example 2: Fetch all open Cases, together with the Account name */
@@ -168,20 +167,8 @@ Note that there are many more elegant ways to implement this code - this
 example is structured to make it as clear as possible!
 *****************************************************************************/
 if (!defined('SKIP_DEMO3')) {
-echo date('Y-m-d H:i:s')."\tFetching First Page of Case data... ";
-$caseData = $crmConnector->retrieveMultiple($caseQueryXML, FALSE);
-echo 'Done'.PHP_EOL;
-/* Loop through the cases we found */
-foreach ($caseData->Entities as $caseItem) {
-	echo 'Case '.$caseItem->ticketnumber
-			.' is from Account '.$caseItem->case_account->name
-			.' ('.$caseItem->case_account->telephone1.')'.PHP_EOL;
-}
-/* Check if there are any more Cases to return */
-while ($caseData->MoreRecords == TRUE) {
-	/* Fetch the next set of data */
-	echo date('Y-m-d H:i:s')."\tFetching Next Page of Case data... ";
-	$caseData = $crmConnector->retrieveMultiple($caseQueryXML, FALSE, $caseData->PagingCookie);
+	echo date('Y-m-d H:i:s')."\tFetching First Page of Case data... ";
+	$caseData = $crmConnector->retrieveMultiple($caseQueryXML, FALSE);
 	echo 'Done'.PHP_EOL;
 	/* Loop through the cases we found */
 	foreach ($caseData->Entities as $caseItem) {
@@ -189,7 +176,19 @@ while ($caseData->MoreRecords == TRUE) {
 				.' is from Account '.$caseItem->case_account->name
 				.' ('.$caseItem->case_account->telephone1.')'.PHP_EOL;
 	}
-}
+	/* Check if there are any more Cases to return */
+	while ($caseData->MoreRecords == TRUE) {
+		/* Fetch the next set of data */
+		echo date('Y-m-d H:i:s')."\tFetching Next Page of Case data... ";
+		$caseData = $crmConnector->retrieveMultiple($caseQueryXML, FALSE, $caseData->PagingCookie);
+		echo 'Done'.PHP_EOL;
+		/* Loop through the cases we found */
+		foreach ($caseData->Entities as $caseItem) {
+			echo 'Case '.$caseItem->ticketnumber
+					.' is from Account '.$caseItem->case_account->name
+					.' ('.$caseItem->case_account->telephone1.')'.PHP_EOL;
+		}
+	}
 }
 
 /****************************************************************************
@@ -211,130 +210,177 @@ a copy of your Fetch XML query, the Raw data returned, and the parsed data
 returned - e.g. output from var_dump($accountData)
 *****************************************************************************/
 if (!defined('SKIP_DEMO4')) {
-echo date('Y-m-d H:i:s')."\tFetching Raw Account data... ";
-$rawAccountData = $crmConnector->retrieveMultipleRaw($accountQueryXML);
-echo 'Done'.PHP_EOL;
-echo PHP_EOL.'Start of Raw XML data...'.PHP_EOL;
-echo $rawAccountData;
-echo PHP_EOL.'End of Raw XML data...'.PHP_EOL;
-
-echo date('Y-m-d H:i:s')."\tFetching Raw Case data... ";
-$rawCaseData = $crmConnector->retrieveMultipleRaw($caseQueryXML, NULL, 2);
-echo 'Done'.PHP_EOL;
-echo PHP_EOL.'Start of Raw XML data...'.PHP_EOL;
-echo $rawCaseData;
-echo PHP_EOL.'End of Raw XML data...'.PHP_EOL;
-
+	echo date('Y-m-d H:i:s')."\tFetching Raw Account data... ";
+	$rawAccountData = $crmConnector->retrieveMultipleRaw($accountQueryXML);
+	echo 'Done'.PHP_EOL;
+	echo PHP_EOL.'Start of Raw XML data...'.PHP_EOL;
+	echo $rawAccountData;
+	echo PHP_EOL.'End of Raw XML data...'.PHP_EOL;
+	
+	echo date('Y-m-d H:i:s')."\tFetching Raw Case data... ";
+	$rawCaseData = $crmConnector->retrieveMultipleRaw($caseQueryXML, NULL, 2);
+	echo 'Done'.PHP_EOL;
+	echo PHP_EOL.'Start of Raw XML data...'.PHP_EOL;
+	echo $rawCaseData;
+	echo PHP_EOL.'End of Raw XML data...'.PHP_EOL;
 }
 
 /* Example 3: Getting RecordChangeHistory details */
 if (!defined('SKIP_DEMO5')) {
-/* First, we run a query to get the ID of a particular Case */
-$caseNumber = 'CAS-01196-Q6W2';//'CAS-01001-Y1X0';
-$caseIdQueryXML = <<<END
+	/* First, we run a query to get the ID of a particular Case */
+	$caseIdQueryXML = <<<END
 <fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false">
   <entity name="incident">
     <attribute name="ticketnumber" />
     <attribute name="incidentid" />
     <order attribute="ticketnumber" descending="false" />
     <filter type="and">
-      <condition attribute="ticketnumber" operator="eq" value="${caseNumber}" />
+      <condition attribute="ticketnumber" operator="eq" value="${demoCaseNumber}" />
     </filter>
   </entity>
 </fetch>
 END;
-echo date('Y-m-d H:i:s')."\tFetching Case ID for Case ${caseNumber}... ";
-echo 'Done'.PHP_EOL;
-$caseIdData = $crmConnector->retrieveMultiple($caseIdQueryXML);
-/* Get the term used internally to define a "Case" */
-$caseType = $caseIdData->EntityName;
-/* Get the internal ID of the first case returned (should just be one anyway) */
-$caseId = $caseIdData->Entities[0]->incidentid;
-/* Now, get the full history of the Case */
-echo date('Y-m-d H:i:s')."\tFetching Case History data... ";
-$caseHistoryData = $crmConnector->retrieveRecordChangeHistory($caseType, $caseId);
-echo 'Done'.PHP_EOL;
+	echo date('Y-m-d H:i:s')."\tFetching Case ID for Case ${demoCaseNumber}... ";
+	echo 'Done'.PHP_EOL;
+	$caseIdData = $crmConnector->retrieveMultiple($caseIdQueryXML);
+	/* Get the term used internally to define a "Case" */
+	$caseType = $caseIdData->EntityName;
+	/* Get the internal ID of the first case returned (should just be one anyway) */
+	$caseId = $caseIdData->Entities[0]->incidentid;
+	/* Now, get the full history of the Case */
+	echo date('Y-m-d H:i:s')."\tFetching Case History data... ";
+	$caseHistoryData = $crmConnector->retrieveRecordChangeHistory($caseType, $caseId);
+	echo 'Done'.PHP_EOL;
 
-//print_r($caseHistoryData);
-//echo PHP_EOL.PHP_EOL.$caseHistoryData.PHP_EOL.PHP_EOL;
+	//print_r($caseHistoryData);
+	//echo PHP_EOL.PHP_EOL.$caseHistoryData.PHP_EOL.PHP_EOL;
 
-foreach ($caseHistoryData->AuditDetails as $changeDetail) {
-	if (isset($changeDetail->Values->statuscode)) {
-		echo 'At '.date('Y-m-d H:i:s', $changeDetail->AuditRecord->createdon->Value).
-				' the Status was changed from <'.$changeDetail->Values->statuscode->OldValue->FormattedValue.'>'.
-				' to <'.$changeDetail->Values->statuscode->NewValue->FormattedValue.'>'.
-				' by User <'.$changeDetail->AuditRecord->userid->Name.'>'.PHP_EOL;
-	} else {
-		echo 'At '.date('Y-m-d H:i:s', $changeDetail->AuditRecord->createdon->Value).
-				' a change was made by User <'.$changeDetail->AuditRecord->userid->Name.'>'.
-				' but the Status was not changed.'.PHP_EOL;
+	foreach ($caseHistoryData->AuditDetails as $changeDetail) {
+		if (isset($changeDetail->Values->statuscode)) {
+			echo 'At '.date('Y-m-d H:i:s', $changeDetail->AuditRecord->createdon->Value).
+					' the Status was changed from <'.$changeDetail->Values->statuscode->OldValue->FormattedValue.'>'.
+					' to <'.$changeDetail->Values->statuscode->NewValue->FormattedValue.'>'.
+					' by User <'.$changeDetail->AuditRecord->userid->Name.'>'.PHP_EOL;
+		} else {
+			echo 'At '.date('Y-m-d H:i:s', $changeDetail->AuditRecord->createdon->Value).
+					' a change was made by User <'.$changeDetail->AuditRecord->userid->Name.'>'.
+					' but the Status was not changed.'.PHP_EOL;
+		}
 	}
-}
 }
 
 /* Example 4: Display the functionality available to use */
 if (!defined('SKIP_DEMO6')) {
-echo 'Discovery Service actions:'.PHP_EOL;
-print_r($crmConnector->getAllDiscoverySoapActions());
-echo PHP_EOL.'Organization Service actions:'.PHP_EOL;
-print_r($crmConnector->getAllOrganizationSoapActions());
+	echo 'Discovery Service actions:'.PHP_EOL;
+	print_r($crmConnector->getAllDiscoverySoapActions());
+	echo PHP_EOL.'Organization Service actions:'.PHP_EOL;
+	print_r($crmConnector->getAllOrganizationSoapActions());
 }
 
 /* Example 5: Using the Retrieve method to get an entity by ID */
 if (!defined('SKIP_DEMO7')) {
-/* First, we run a query to get the ID of a particular Case */
-$caseNumber = 'CAS-01196-Q6W2';//'CAS-01001-Y1X0';
-$caseIdQueryXML = <<<END
+	/* First, we run a query to get the ID of a particular Case */
+	$caseIdQueryXML = <<<END
 <fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false">
   <entity name="incident">
     <attribute name="ticketnumber" />
     <attribute name="incidentid" />
     <order attribute="ticketnumber" descending="false" />
     <filter type="and">
-      <condition attribute="ticketnumber" operator="eq" value="${caseNumber}" />
+      <condition attribute="ticketnumber" operator="eq" value="${demoCaseNumber}" />
     </filter>
   </entity>
 </fetch>
 END;
-echo date('Y-m-d H:i:s')."\tFetching Case ID for Case ${caseNumber}... ";
-echo 'Done'.PHP_EOL;
-$caseIdData = $crmConnector->retrieveMultiple($caseIdQueryXML);
-/* Get the term used internally to define a "Case" */
-$caseType = $caseIdData->EntityName;
-/* Get the internal ID of the first case returned (should just be one anyway) */
-$caseId = $caseIdData->Entities[0]->incidentid;
-/* Now, get the full details of the Case */
-echo date('Y-m-d H:i:s')."\tFetching Case data... ";
-$caseData = $crmConnector->retrieve($caseType, $caseId, Array('incidentid', 'ticketnumber', 'createdon', 'statecode', 'responsiblecontactid'));
-echo 'Done'.PHP_EOL;
-
-//echo PHP_EOL.PHP_EOL.$caseData.PHP_EOL.PHP_EOL;
-print_r($caseData);
-
+	echo date('Y-m-d H:i:s')."\tFetching Case ID for Case ${demoCaseNumber}... ";
+	echo 'Done'.PHP_EOL;
+	$caseIdData = $crmConnector->retrieveMultiple($caseIdQueryXML);
+	/* Get the term used internally to define a "Case" */
+	$caseType = $caseIdData->EntityName;
+	/* Get the internal ID of the first case returned (should just be one anyway) */
+	$caseId = $caseIdData->Entities[0]->incidentid;
+	/* Now, get the full details of the Case */
+	echo date('Y-m-d H:i:s')."\tFetching Case data... ";
+	$caseData = $crmConnector->retrieve($caseType, $caseId, Array('incidentid', 'ticketnumber', 'createdon', 'statecode', 'responsiblecontactid'));
+	echo 'Done'.PHP_EOL;
+	
+	//echo PHP_EOL.PHP_EOL.$caseData.PHP_EOL.PHP_EOL;
+	print_r($caseData);
 }
 
 /* Example 6: Get the full description of an Incident */
 if (!defined('SKIP_DEMO8')) {
-echo date('Y-m-d H:i:s')."\tFetching details of Cases data... ";
-$caseEntityData = $crmConnector->retrieveEntity('incident', NULL, 'Entity Attributes');
-echo 'Done'.PHP_EOL;
-//echo PHP_EOL.'Start of XML Object data...'.PHP_EOL;
-//echo $caseEntityData->asXML();
-//echo PHP_EOL.'End of XML Object data...'.PHP_EOL;
-foreach ($caseEntityData->children('http://schemas.microsoft.com/xrm/2011/Metadata')->Attributes[0]->AttributeMetadata as $attribute) {
-	echo 'Attribute '.(String)$attribute->SchemaName.' ('.(String)$attribute->DisplayName->children('http://schemas.microsoft.com/xrm/2011/Contracts')->UserLocalizedLabel->Label.') '
-		.'is of Type '.(String)$attribute->AttributeType.PHP_EOL;
-	$attributeTypes[(String)$attribute->AttributeType][] = (String)$attribute->SchemaName;
-}
+	echo date('Y-m-d H:i:s')."\tFetching details of Cases data... ";
+	$caseEntityData = $crmConnector->retrieveEntity('incident', NULL, 'Entity Attributes');
+	echo 'Done'.PHP_EOL;
+	//echo PHP_EOL.'Start of XML Object data...'.PHP_EOL;
+	//echo $caseEntityData->asXML();
+	//echo PHP_EOL.'End of XML Object data...'.PHP_EOL;
+	foreach ($caseEntityData->children('http://schemas.microsoft.com/xrm/2011/Metadata')->Attributes[0]->AttributeMetadata as $attribute) {
+		echo 'Attribute '.(String)$attribute->SchemaName.' ('.(String)$attribute->DisplayName->children('http://schemas.microsoft.com/xrm/2011/Contracts')->UserLocalizedLabel->Label.') '
+			.'is of Type '.(String)$attribute->AttributeType.PHP_EOL;
+		$attributeTypes[(String)$attribute->AttributeType][] = (String)$attribute->SchemaName;
+	}
 }
 
 /* Example 7: Creating a new Case */
 if (!defined('SKIP_DEMO9')) {
+	/* Find the ID for a Contact & Account */
+	$contactQueryXML = <<<END
+<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false">
+  <entity name="contact">
+    <attribute name="fullname" />
+    <attribute name="emailaddress1" />
+    <attribute name="contactid" />
+    <order attribute="fullname" descending="false" />
+    <filter type="and">
+      <condition attribute="emailaddress1" operator="eq" value="${demoContactEmail}" />
+    </filter>
+    <link-entity name="account" from="accountid" to="parentcustomerid" visible="false" link-type="outer" alias="parentcustomer">
+      <attribute name="accountid" />
+      <attribute name="name" />
+    </link-entity>
+  </entity>
+</fetch>
+END;
+	echo date('Y-m-d H:i:s')."\tFetching Contact & Account ID for Contact ${demoContactEmail}... ";
+	$contactIdData = $crmConnector->retrieveMultiple($contactQueryXML);
+	echo 'Done'.PHP_EOL;
+	$contactId = $contactIdData->Entities[0]->contactid;
+	$accountId = $contactIdData->Entities[0]->parentcustomer->accountid;
+	
+	/* Create a template Account, using this ID */
+	$account = new DynamicsCRM2011_Account($crmConnector);
+	$account->ID = $accountId;
+	
+	/* Create a template Contact, using the Contact ID */
+	$contact = new DynamicsCRM2011_Entity($crmConnector, 'contact');
+	$contact->ID = $contactId;
+	
+	/* Create a new Case, linked to this Account */
 	$case = new DynamicsCRM2011_Incident($crmConnector);
-	echo 'Case Title on creation is: <'.$case->Title.'>'.PHP_EOL;
-	$case->Title = 'Test Case';
-	echo 'Case title is now: <'.$case->Title.'> and has '.($case->isChanged('Title')?'definitely':'not').' changed!'.PHP_EOL;
-	$case->reset();
-	echo 'Case title is now: <'.$case->Title.'> and has '.($case->isChanged('Title')?'definitely':'not').' changed!'.PHP_EOL;
+	$case->Title = 'Test Case - Using DynamicsCRM2011 from PHP';
+	$case->CustomerID = $account;
+	$case->ResponsibleContactId = $contact;
+	echo 'Case Title is now: <'.$case->Title.'> and has '.($case->isChanged('Title')?'definitely':'not').' changed!'.PHP_EOL;
+	echo 'Case Contact is now: <'.$case->ResponsibleContactId.'> and has '.($case->isChanged('ResponsibleContactId')?'definitely':'not').' changed!'.PHP_EOL;
+	echo 'Case Account is now: <'.$case->CustomerID.'> and has '.($case->isChanged('CustomerID')?'definitely':'not').' changed!'.PHP_EOL;
+	/* Before Creating the Case, check if any Mandatory fields are missing */
+	$missingFields = Array();
+	if (!$case->checkMandatories($missingFields)) {
+		echo 'Missing Mandatory Fields: '.PHP_EOL;
+		print_r($missingFields);
+		echo PHP_EOL.PHP_EOL;
+	} 
+	/* Note that Dynamics CRM 2011 often recovers from missing Mandatory fields, so
+	 * we can continue and try and create the case anyway - in fact, the only 
+	 * truly required fields seem to be Title and CustomerId
+	 */
+	$caseId = $crmConnector->create($case);
+	echo 'Case ID is: '.$caseId.PHP_EOL;
+	echo 'Case Title is now: <'.$case->Title.'> and has '.($case->isChanged('Title')?'definitely':'not').' changed!'.PHP_EOL;
+	echo 'Case Contact is now: <'.$case->ResponsibleContactId.'> and has '.($case->isChanged('ResponsibleContactId')?'definitely':'not').' changed!'.PHP_EOL;
+	echo 'Case Account is now: <'.$case->CustomerID.'> and has '.($case->isChanged('CustomerID')?'definitely':'not').' changed!'.PHP_EOL;
+	echo 'Case is now: '.$case.PHP_EOL;
 }
 ?>
