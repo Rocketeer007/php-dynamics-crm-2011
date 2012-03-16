@@ -76,10 +76,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	private $organizationSecurityToken;
 	/* Cached Entity Definitions */
 	private $cachedEntityDefintions = Array();
-	/* Internal details */
-	private static $debugMode = FALSE;
-	/* Class constants */
-	const MAX_CRM_RECORDS = 5000;
+	
 	/**
 	 * Create a new instance of the DynamicsCRM2011Connector
 	 *
@@ -377,7 +374,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @return DOMNode containing the XML for a RetrieveOrganizationRequest message
 	 * @ignore
 	 */
-	private static function generateRetrieveOrganizationRequest() {
+	protected static function generateRetrieveOrganizationRequest() {
 		$retrieveOrganizationRequestDOM = new DOMDocument();
 		$executeNode = $retrieveOrganizationRequestDOM->appendChild($retrieveOrganizationRequestDOM->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts/Discovery', 'Execute'));
 		$requestNode = $executeNode->appendChild($retrieveOrganizationRequestDOM->createElement('request'));
@@ -1117,30 +1114,6 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		}
 		
 		return $responseXML;
-	}
-	
-	/**
-	 * Enable or Disable DEBUG for the Class
-	 * @ignore
-	 */
-	public static function setDebug($_debugMode) {
-		self::$debugMode = $_debugMode;
-	}
-	
-	/**
-	 * Get the current time, as required in XML format 
-	 * @ignore
-	 */
-	private static function getCurrentTime(){
-		return substr(date('c'),0,-6) . ".00";
-	}
-	
-	/**
-	 * Get an appropriate expiry time for the XML requests, as required in XML format 
-	 * @ignore
-	 */
-	private static function getExpiryTime(){
-		return substr(date('c', strtotime('+1 minute')),0,-6) . ".00"; 
 	}
 	
 	/**
