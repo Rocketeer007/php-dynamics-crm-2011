@@ -74,6 +74,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	private $organizationRetrieveMultipleAction;
 	private $organizationSecurityPolicy;
 	private $organizationSecurityToken;
+	/* Cached Entity Definitions */
+	private $cachedEntityDefintions = Array();
 	/* Internal details */
 	private static $debugMode = FALSE;
 	/* Class constants */
@@ -2049,6 +2051,60 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$createNode->appendChild($createRequestDOM->importNode($entity->getEntityDOM(), true));
 		/* Return the DOMNode */
 		return $createNode;
+	}
+	
+	/**
+	 * Check if an Entity Definition has been cached
+	 * 
+	 * @param String $entityLogicalName Logical Name of the entity to check for in the Cache
+	 * @return boolean true if this Entity has been cached
+	 */
+	public function isEntityDefinitionCached($entityLogicalName) {
+		/* Check if this entityLogicalName is in the Cache */
+		if (array_key_exists($entityLogicalName, $this->cachedEntityDefintions)) {
+			return true;
+		} else {
+			return false;
+		}
+	}
+	
+	/**
+	 * Cache the definition of an Entity
+	 * 
+	 * @param String $entityLogicalName
+	 * @param SimpleXMLElement $entityData
+	 * @param Array $propertiesArray
+	 * @param Array $mandatoriesArray
+	 */
+	public function setCachedEntityDefinition($entityLogicalName, SimpleXMLElement $entityData, Array $propertiesArray, Array $mandatoriesArray) {
+		/* Store the details of the Entity Definition in the Cache */
+		$this->cachedEntityDefintions[$entityLogicalName] = Array($entityData, $propertiesArray, $mandatoriesArray);
+	}
+	
+	/**
+	 * Get the Definition of an Entity from the Cache
+	 * 
+	 * @param String $entityLogicalName
+	 * @param SimpleXMLElement $entityData
+	 * @param Array $propertiesArray
+	 * @param Array $mandatoriesArray
+	 * @return boolean true if the Cache was retrieved
+	 */
+	public function getCachedEntityDefinition($entityLogicalName, &$entityData, Array &$propertiesArray, Array &$mandatoriesArray) {
+		/* Check that this Entity Definition has been Cached */
+		if ($this->isEntityDefinitionCached($entityLogicalName)) {
+			/* Populate the containers and return true */
+			$entityData = $this->cachedEntityDefintions[$entityLogicalName][0];
+			$propertiesArray = $this->cachedEntityDefintions[$entityLogicalName][1];
+			$mandatoriesArray = $this->cachedEntityDefintions[$entityLogicalName][2];
+			return true;
+		} else {
+			/* Not found - clear passed containers and return false */
+			$entityData = NULL;
+			$propertiesArray = NULL;
+			$mandatoriesArray = NULL;
+			return false;
+		}
 	}
 }
 

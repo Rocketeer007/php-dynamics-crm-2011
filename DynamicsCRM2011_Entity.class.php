@@ -36,9 +36,18 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		if ($this->entityLogicalName == NULL) {
 			throw new Execption('Cannot instantiate an abstract Entity - specify the Logical Name');
 		}
-		/* First, get the full details of what an Incident is on this server */
+		/* Check if the Definition of this Entity is Cached on the Connector */
+		if ($conn->isEntityDefinitionCached($this->entityLogicalName)) {
+			/* Use the Cached values */
+			$isDefined = $conn->getCachedEntityDefinition($this->entityLogicalName, 
+					$this->entityData, $this->properties, $this->mandatories);
+			if ($isDefined) return;	
+		}
+		
+		/* At this point, we assume Entity is not Cached */
+		/* So, get the full details of what an Incident is on this server */
 		$this->entityData = $conn->retrieveEntity($this->entityLogicalName);
-		$xml = $this->entityData->asXML();
+		
 		/* Next, we analyse this data and determine what Properties this Entity has */
 		foreach ($this->entityData->children('http://schemas.microsoft.com/xrm/2011/Metadata')->Attributes[0]->AttributeMetadata as $attribute) {
 			/* Determine the Type of the Attribute */
@@ -76,6 +85,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				$this->mandatories[strtolower((String)$attribute->LogicalName)] = $requiredLevel;
 			}
 		}
+		
+		/* Finally, ensure that this Entity Definition is Cached for next time */
+		$conn->setCachedEntityDefinition($this->entityLogicalName, 
+				$this->entityData, $this->properties, $this->mandatories);
 		return;
 	}
 	
