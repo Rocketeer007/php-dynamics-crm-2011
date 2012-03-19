@@ -99,9 +99,13 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	 */
 	public function __get($property) {
 		/* Handle special fields */
-		switch ($property) {
+		switch (strtoupper($property)) {
 			case 'ID':
 				return $this->getID();
+				break;
+			case 'LOGICALNAME':
+				return $this->entityLogicalName;
+				break;
 		}
 		/* Handle dynamic properties... */
 		$property = strtolower($property);
@@ -129,7 +133,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	 */
 	public function __set($property, $value) {
 		/* Handle special fields */
-		switch ($property) {
+		switch (strtoupper($property)) {
 			case 'ID':
 				$this->setID($value);
 				return;
