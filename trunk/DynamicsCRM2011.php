@@ -50,7 +50,7 @@ abstract class DynamicsCRM2011 implements DynamicsCRM2011_Interface {
 	 * @ignore
 	 */
 	protected static function getCurrentTime() {
-		return substr(date('c'),0,-6) . ".00";
+		return substr(gmdate('c'),0,-6) . ".00";
 	}
 	
 	/**
@@ -58,7 +58,7 @@ abstract class DynamicsCRM2011 implements DynamicsCRM2011_Interface {
 	 * @ignore
 	 */
 	protected static function getExpiryTime() {
-		return substr(date('c', strtotime('+1 minute')),0,-6) . ".00";
+		return substr(gmdate('c', strtotime('+1 minute')),0,-6) . ".00";
 	}
 	
 	/**
