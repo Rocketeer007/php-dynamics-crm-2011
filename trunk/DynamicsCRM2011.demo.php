@@ -363,6 +363,7 @@ END;
 	$case->Title = 'Test Case - Using DynamicsCRM2011 from PHP';
 	$case->CustomerID = $account;
 	$case->ResponsibleContactId = $contact;
+	//$case->Description = 'This is the case Description, let\'s hope I guessed the field name correctly!';
 	//echo 'Case Title is now: <'.$case->Title.'> and has '.($case->isChanged('Title')?'definitely':'not').' changed!'.PHP_EOL;
 	//echo 'Case Contact is now: <'.$case->ResponsibleContactId.'> and has '.($case->isChanged('ResponsibleContactId')?'definitely':'not').' changed!'.PHP_EOL;
 	//echo 'Case Account is now: <'.$case->CustomerID.'> and has '.($case->isChanged('CustomerID')?'definitely':'not').' changed!'.PHP_EOL;
@@ -386,11 +387,16 @@ END;
 	//echo 'Case Account is now: <'.$case->CustomerID.'> and has '.($case->isChanged('CustomerID')?'definitely':'not').' changed!'.PHP_EOL;
 	echo date('Y-m-d H:i:s')."\t\tCase is now: ".$case.PHP_EOL;
 	
+	echo date('Y-m-d H:i:s')."\tUpdating the Case... ";
+	$case->Title = 'Test Case - Using DynamicsCRM2011 from PHP - Updated';
+	$updated = $crmConnector->update($case);
+	echo 'Done'.PHP_EOL;
+	
 	/* Sleep for 60 seconds to allow the user to verify that the case actually exists on the CRM */
 	echo PHP_EOL.'Waiting 60 seconds - feel free to check the case exists!'.PHP_EOL;
 	sleep(60);
 	/* Delete the case from the CRM */
-	echo date('Y-m-d H:i:s')."\tCreating a new Case... ";
+	echo date('Y-m-d H:i:s')."\tDeleting the test Case... ";
 	$deleted = $crmConnector->delete($case);
 	echo 'Done'.PHP_EOL;
 	
