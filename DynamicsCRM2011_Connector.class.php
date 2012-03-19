@@ -73,6 +73,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	private $organizationExecuteAction;
 	private $organizationRetrieveAction;
 	private $organizationRetrieveMultipleAction;
+	private $organizationUpdateAction;
 	private $organizationSecurityPolicy;
 	private $organizationSecurityToken;
 	/* Cached Entity Definitions */
@@ -349,6 +350,20 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		}
 	
 		return $this->organizationDeleteAction;
+	}
+	
+	/**
+	 * Utility function to get the SoapAction for the Update method
+	 * @ignore
+	 */
+	private function getOrganizationUpdateAction() {
+		/* If it's not cached, update the cache */
+		if ($this->organizationUpdateAction == NULL) {
+			$actions = $this->getAllOrganizationSoapActions();
+			$this->organizationUpdateAction = $actions['Update'];
+		}
+	
+		return $this->organizationUpdateAction;
 	}
 	
 	/**
@@ -1110,6 +1125,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				|| $actionString == 'http://www.w3.org/2005/08/addressing/soap/fault'
 				|| $actionString == 'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/ExecuteOrganizationServiceFaultFault'
 				|| $actionString == 'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/CreateOrganizationServiceFaultFault'
+				|| $actionString == 'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/UpdateOrganizationServiceFaultFault'
+				|| $actionString == 'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/DeleteOrganizationServiceFaultFault'
 			) {
 			// Get the Fault Code
 			$faultCode = $responseDOM->getElementsByTagNameNS('http://www.w3.org/2003/05/soap-envelope', 'Envelope')->item(0)
@@ -2103,7 +2120,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	public function delete(DynamicsCRM2011_Entity &$entity) {
 		/* Send the sequrity request and get a security token */
 		$securityToken = $this->getOrganizationSecurityToken();
-		/* Generate the XML for the Body of a Create request */
+		/* Generate the XML for the Body of a Delete request */
 		$deleteNode = self::generateDeleteRequest($entity);
 	
 		if (self::$debugMode) echo PHP_EOL.'Delete Request: '.PHP_EOL.$deleteNode->C14N().PHP_EOL.PHP_EOL;
@@ -2118,7 +2135,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$soapResponseDOM = new DOMDocument();
 		$soapResponseDOM->loadXML($soapResponse);
 	
- 		/* Find the CreateResponse */
+ 		/* Find the DeleteResponse */
  		$deleteResponseNode = NULL;
  		foreach ($soapResponseDOM->getElementsByTagName('DeleteResponse') as $node) {
  			$deleteResponseNode = $node;
@@ -2145,6 +2162,57 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$deleteNode->appendChild($deleteRequestDOM->createElement('id', $entity->ID));
 		/* Return the DOMNode */
 		return $deleteNode;
+	}
+	
+	/**
+	 * Send an Update request to the Dynamics CRM 2011 server, and return ...
+	 *
+	 * @param DynamicsCRM2011_Entity $entity the Entity to update
+	 */
+	public function update(DynamicsCRM2011_Entity &$entity) {
+		/* Send the sequrity request and get a security token */
+		$securityToken = $this->getOrganizationSecurityToken();
+		/* Generate the XML for the Body of an Update request */
+		$updateNode = self::generateUpdateRequest($entity);
+	
+		if (self::$debugMode) echo PHP_EOL.'Update Request: '.PHP_EOL.$updateNode->C14N().PHP_EOL.PHP_EOL;
+	
+		/* Turn this into a SOAP request, and send it */
+		$updateRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationUpdateAction(), $securityToken, $updateNode);
+		$soapResponse = self::getSoapResponse($this->organizationURI, $updateRequest);
+	
+		if (self::$debugMode) echo PHP_EOL.'Update Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
+	
+		/* Load the XML into a DOMDocument */
+		$soapResponseDOM = new DOMDocument();
+		$soapResponseDOM->loadXML($soapResponse);
+	
+		/* Find the UpdateResponse */
+		$updateResponseNode = NULL;
+		foreach ($soapResponseDOM->getElementsByTagName('UpdateResponse') as $node) {
+			$updateResponseNode = $node;
+			break;
+		}
+		unset($node);
+		if ($updateResponseNode == NULL) {
+			throw new Exception('Could not find UpdateResponse node in XML returned from Server');
+			return FALSE;
+		}
+		/* Update occurred successfully */
+		return $updateResponseNode->C14N();
+	}
+	
+	/**
+	 * Generate an Update Request
+	 * @ignore
+	 */
+	protected static function generateUpdateRequest(DynamicsCRM2011_Entity $entity) {
+		/* Generate the UpdateRequest message */
+		$updateRequestDOM = new DOMDocument();
+		$updateNode = $updateRequestDOM->appendChild($updateRequestDOM->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts/Services', 'Update'));
+		$updateNode->appendChild($updateRequestDOM->importNode($entity->getEntityDOM(), true));
+		/* Return the DOMNode */
+		return $updateNode;
 	}
 }
 
