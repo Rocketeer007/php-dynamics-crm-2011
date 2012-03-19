@@ -69,6 +69,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	private $organizationDOM;
 	private $organizationSoapActions;
 	private $organizationCreateAction;
+	private $organizationDeleteAction;
 	private $organizationExecuteAction;
 	private $organizationRetrieveAction;
 	private $organizationRetrieveMultipleAction;
@@ -334,6 +335,20 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		}
 	
 		return $this->organizationCreateAction;
+	}
+	
+	/**
+	 * Utility function to get the SoapAction for the Delete method
+	 * @ignore
+	 */
+	private function getOrganizationDeleteAction() {
+		/* If it's not cached, update the cache */
+		if ($this->organizationDeleteAction == NULL) {
+			$actions = $this->getAllOrganizationSoapActions();
+			$this->organizationDeleteAction = $actions['Delete'];
+		}
+	
+		return $this->organizationDeleteAction;
 	}
 	
 	/**
@@ -1982,13 +1997,13 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Generate the XML for the Body of a Create request */
 		$createNode = self::generateCreateRequest($entity);
 		
-		echo PHP_EOL.'Create Request: '.PHP_EOL.$createNode->C14N().PHP_EOL.PHP_EOL;
+		if (self::$debugMode) echo PHP_EOL.'Create Request: '.PHP_EOL.$createNode->C14N().PHP_EOL.PHP_EOL;
 		
 		/* Turn this into a SOAP request, and send it */
 		$createRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationCreateAction(), $securityToken, $createNode);
 		$soapResponse = self::getSoapResponse($this->organizationURI, $createRequest);
 		
-		echo PHP_EOL.'Create Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
+		if (self::$debugMode) echo PHP_EOL.'Create Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
 		
 		/* Load the XML into a DOMDocument */
 		$soapResponseDOM = new DOMDocument();
@@ -2078,6 +2093,58 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			$mandatoriesArray = NULL;
 			return false;
 		}
+	}
+	
+	/**
+	 * Send a Delete request to the Dynamics CRM 2011 server, and return ...
+	 *
+	 * @param DynamicsCRM2011_Entity $entity the Entity to delete
+	 */
+	public function delete(DynamicsCRM2011_Entity &$entity) {
+		/* Send the sequrity request and get a security token */
+		$securityToken = $this->getOrganizationSecurityToken();
+		/* Generate the XML for the Body of a Create request */
+		$deleteNode = self::generateDeleteRequest($entity);
+	
+		if (self::$debugMode) echo PHP_EOL.'Delete Request: '.PHP_EOL.$deleteNode->C14N().PHP_EOL.PHP_EOL;
+	
+		/* Turn this into a SOAP request, and send it */
+		$deleteRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationDeleteAction(), $securityToken, $deleteNode);
+		$soapResponse = self::getSoapResponse($this->organizationURI, $deleteRequest);
+	
+		if (self::$debugMode) echo PHP_EOL.'Delete Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
+	
+		/* Load the XML into a DOMDocument */
+		$soapResponseDOM = new DOMDocument();
+		$soapResponseDOM->loadXML($soapResponse);
+	
+ 		/* Find the CreateResponse */
+ 		$deleteResponseNode = NULL;
+ 		foreach ($soapResponseDOM->getElementsByTagName('DeleteResponse') as $node) {
+ 			$deleteResponseNode = $node;
+ 			break;
+ 		}
+ 		unset($node);
+ 		if ($deleteResponseNode == NULL) {
+ 			throw new Exception('Could not find DeleteResponse node in XML returned from Server');
+ 			return FALSE;
+ 		}
+ 		/* Delete occurred successfully */
+		return TRUE;
+	}
+	
+	/**
+	 * Generate a Delete Request
+	 * @ignore
+	 */
+	protected static function generateDeleteRequest(DynamicsCRM2011_Entity $entity) {
+		/* Generate the DeleteRequest message */
+		$deleteRequestDOM = new DOMDocument();
+		$deleteNode = $deleteRequestDOM->appendChild($deleteRequestDOM->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts/Services', 'Delete'));
+		$deleteNode->appendChild($deleteRequestDOM->createElement('entityName', $entity->logicalName));
+		$deleteNode->appendChild($deleteRequestDOM->createElement('id', $entity->ID));
+		/* Return the DOMNode */
+		return $deleteNode;
 	}
 }
 
