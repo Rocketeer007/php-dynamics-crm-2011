@@ -1249,7 +1249,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			$columnsNode = $columnSetNode->appendChild($retrieveRequestDOM->createElement('b:Columns'));
 			$columnsNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:c', 'http://schemas.microsoft.com/2003/10/Serialization/Arrays');
 			foreach ($columnSet as $columnName) {
-				$columnsNode->appendChild($retrieveRequestDOM->createElement('c:string', $columnName));
+				$columnsNode->appendChild($retrieveRequestDOM->createElement('c:string', strtolower($columnName)));
 			}
 		} else {
 			/* No columns specified, request all of them */
