@@ -309,7 +309,7 @@ END;
 	print_r($caseData);
 }
 
-/* Example 6: Get the full description of an Incident */
+/* Example 6: Get the full description of the Incident Entity */
 if (!defined('SKIP_DEMO8')) {
 	echo date('Y-m-d H:i:s')."\tFetching details of Cases data... ";
 	$caseEntityData = $crmConnector->retrieveEntity('incident', NULL, 'Entity Attributes');
@@ -355,7 +355,7 @@ END;
 	$account->ID = $accountId;
 	
 	/* Create a template Contact, using the Contact ID */
-	$contact = new DynamicsCRM2011_Entity($crmConnector, 'contact');
+	$contact = DynamicsCRM2011_Entity::fromLogicalName($crmConnector, 'contact');
 	$contact->ID = $contactId;
 	
 	/* Create a new Case, linked to this Account */
@@ -392,9 +392,17 @@ END;
 	$updated = $crmConnector->update($case);
 	echo 'Done'.PHP_EOL;
 	
-	/* Sleep for 60 seconds to allow the user to verify that the case actually exists on the CRM */
-	echo PHP_EOL.'Waiting 60 seconds - feel free to check the case exists!'.PHP_EOL;
-	sleep(60);
+	/* Fetch the case using the logicalName & ID */
+	echo date('Y-m-d H:i:s')."\tRetrieving the updated Case... ";
+	$crmConnector->setDebug(true);
+	$case = $crmConnector->retrieve($case);
+	$crmConnector->setDebug(false);
+	echo 'Done'.PHP_EOL;
+	
+	echo PHP_EOL.'Case Details: '.$case.PHP_EOL;
+	var_dump($case);
+	echo PHP_EOL.PHP_EOL;
+	
 	/* Delete the case from the CRM */
 	echo date('Y-m-d H:i:s')."\tDeleting the test Case... ";
 	$deleted = $crmConnector->delete($case);
