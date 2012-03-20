@@ -4,10 +4,12 @@ require_once 'DynamicsCRM2011.php';
 
 class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	/**
-	 * Overridden in each child class; this is how Dynamics refers to this Entity
-	 * @var String entityLogicalName
+	 * Overridden in each child class
+	 * @var String entityLogicalName this is how Dynamics refers to this Entity
 	 */
 	protected $entityLogicalName = NULL;
+	/** @var String entityDisplayName the field to use to display the entity's Name */
+	protected $entityDisplayName = NULL;
 	/* The details of the Entity structure (SimpleXML object) */
 	protected $entityData;
 	/* The Properties of the Entity */
@@ -106,6 +108,13 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			case 'LOGICALNAME':
 				return $this->entityLogicalName;
 				break;
+			case 'DISPLAYNAME':
+				if ($this->entityDisplayName != NULL) {
+					$property = $this->entityDisplayName;
+				} else {
+					return NULL;
+				}
+				break;
 		}
 		/* Handle dynamic properties... */
 		$property = strtolower($property);
@@ -137,13 +146,20 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			case 'ID':
 				$this->setID($value);
 				return;
+			case 'DISPLAYNAME':
+				if ($this->entityDisplayName != NULL) {
+					$property = $this->entityDisplayName;
+				} else {
+					return;
+				}
+				break;
 		}
 		/* Handle dynamic properties... */
 		$property = strtolower($property);
 		/* Property doesn't exist - standard error */
 		if (!array_key_exists($property, $this->properties)) {
 			$trace = debug_backtrace();
-			trigger_error('Undefined property via __set(): ' . $property 
+			trigger_error('Undefined property via __set() - ' . $this->entityLogicalName . ' does not support property: ' . $property 
 					. ' in ' . $trace[0]['file'] . ' on line ' . $trace[0]['line'],
 					E_USER_NOTICE);
 			return;
@@ -170,7 +186,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			}
 		} 
 		/* Update the property value with whatever value was passed */
-		switch ($properties[$property]['Type']) {
+		switch ($this->properties[$property]['Type']) {
 			case 'EntityReference':
 				/* In addition to the setting the field, also clear any existing "AttributeOf" this field */
 				$this->clearAttributesOf($property);
@@ -183,6 +199,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		$this->properties[$property]['Changed'] = true;
 	}
 	
+	/**
+	 * Utility function to clear all "AttributeOf" fields relating to the base field
+	 * @param String $baseProperty
+	 */
 	private function clearAttributesOf($baseProperty) {
 		/* Loop through all the properties */
 		foreach ($this->properties as &$property) {
@@ -486,6 +506,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 						/* Don't overwrite something that's already set */
 						if ($this->properties[$attributeKey.'name']['Value'] == NULL) {
 							$this->properties[$attributeKey.'name']['Value'] = $entityReferenceName;
+						}
+						/* If the Entity has a defined way to get the Display Name, use it too */
+						if ($storedValue->entityDisplayName != NULL) {
+							$storedValue->properties[$storedValue->entityDisplayName]['Value'] = $entityReferenceName;
 						}
 					}
 					break;
