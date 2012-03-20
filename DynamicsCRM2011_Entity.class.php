@@ -351,7 +351,16 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 							/* Date/Time - Stored in the Entity as a PHP Date, needs to be XML format. Type is also mixed-case */
 							$xmlValue = gmdate("Y-m-d\TH:i:s\Z", $xmlValue);
 							$xmlType = 'dateTime';
-							break;				
+							break;
+						case 'string':
+						case 'int':
+						case 'decimal':
+							/* No special handling for these types */
+							break;
+						default:
+							/* If we're using Default, Warn user that the XML handling is not defined */
+							trigger_error('No Create/Update handling implemented for type '.$propertyDetails['Type'].' used by field '.$property,
+									E_USER_WARNING);
 					}
 					/* Now create the XML Node for the Value */
 					$valueNode = $propertyNode->appendChild($entityDOM->createElement('c:value', $xmlValue));
@@ -534,7 +543,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					}
 					break;
 				default:
-					trigger_error('No handling implemented for type '.$attributeValueType.' used by field '.$attributeKey,
+					trigger_error('No parse handling implemented for type '.$attributeValueType.' used by field '.$attributeKey,
 							E_USER_WARNING);
 					$attributeValue = $keyValueNode->getElementsByTagName('value')->item(0)->C14N();
 					/* Check for a Formatted Value */
@@ -546,6 +555,69 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			}
 			/* Bypass __set, and set the Value directly in the Properties array */
 			$this->properties[$attributeKey]['Value'] = $storedValue;
+		}
+	}
+	
+	public function printDetails($recursive = false, $tabLevel = 0) {
+		/* Print the Entity Summary at current Tab level */
+		echo str_repeat("\t", $tabLevel).$this.PHP_EOL;
+		/* Increment the tabbing level */
+		$tabLevel++;
+		$linePrefix = str_repeat("\t", $tabLevel);
+		/* Get a list of properties of this Entity, in Alphabetical order */
+		$propertyList = array_keys($this->properties);
+		sort($propertyList);
+		/* Loop through each property */
+		foreach ($propertyList as $property) {
+			/* Get the details of the Property */
+			$propertyDetails = $this->properties[$property];
+			/* If there's no Label, don't display it */
+			if ($propertyDetails['Label'] == NULL) continue;
+			/* Output the Property Name & Description */
+			echo $linePrefix.$property.' ['.$propertyDetails['Label'].']: ';
+			/* For NULL values, just output NULL and the Type on one line */
+			if ($propertyDetails['Value'] == NULL) {
+				echo 'NULL ('.$propertyDetails['Type'].')'.PHP_EOL;
+				continue;
+			} else {
+				echo PHP_EOL;
+			}
+			/* Handle the Lookup types */
+			if ($propertyDetails['isLookup']) {
+				/* EntityReference - Either just summarise the Entity, or Recurse */
+				if ($recursive) {
+					$propertyDetails['Value']->printDetails($recursive, $tabLevel+1);
+				} else {
+					echo $linePrefix."\t".$propertyDetails['Value'].PHP_EOL;
+				}
+				continue;
+			}
+			/* Any other Property Type - depending on its Type */
+			switch ($propertyDetails['Type']) {
+				case 'DateTime':
+					/* Date/Time - Print this as a formatted Date/Time */
+					echo $linePrefix."\t".date('Y-m-d H:i:s P', $propertyDetails['Value']).PHP_EOL;
+					break;
+				case 'Picklist':
+				case 'State':
+				case 'Status':
+					/* OptionSetValue - Numerical Value for Info, Text for Display */
+					echo $linePrefix."\t".'['.$propertyDetails['Value']->Value.'] '.$propertyDetails['Value']->FormattedValue.PHP_EOL;
+					break;
+				case 'Decimal':
+				case 'Uniqueidentifier':
+				case 'Memo':
+				case 'String':
+					/* Just cast it to a String to display */
+					echo $linePrefix."\t".'('.$propertyDetails['Type'].') '. $propertyDetails['Value'].PHP_EOL;
+					break;
+				default:
+					/* If we're using Default, Warn user that the output handling is not defined */
+					trigger_error('No output handling implemented for type '.$propertyDetails['Type'].' used by field '.$property,
+							E_USER_WARNING);
+					/* Use print_r to display unknown formats */
+					echo $linePrefix."\t".'('.$propertyDetails['Type'].') '.print_r($propertyDetails['Value'], true).PHP_EOL;
+			}
 		}
 	}
 }
