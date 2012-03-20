@@ -337,11 +337,27 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					$valueNode->appendChild($entityDOM->createElement('b:LogicalName', $propertyDetails['Value']->entityLogicalName));
 					$valueNode->appendChild($entityDOM->createElement('b:Name'))->setAttribute('i:nil', 'true');
 				} else {
-					/* Normal handling for all other types */
-					$valueNode = $propertyNode->appendChild($entityDOM->createElement('c:value', $propertyDetails['Value']));
+					/* Determine the Type, Value and XML Namespace for this field */
+					$xmlValue = $propertyDetails['Value'];
+					$xmlType = strtolower($propertyDetails['Type']);
+					$xmlTypeNS = 'http://www.w3.org/2001/XMLSchema';
+					/* Special Handing for certain types of field */
+					switch (strtolower($propertyDetails['Type'])) {
+						case 'memo':
+							/* Memo - This gets treated as a normal String */
+							$xmlType = 'string';
+							break;
+						case 'datetime':
+							/* Date/Time - Stored in the Entity as a PHP Date, needs to be XML format. Type is also mixed-case */
+							$xmlValue = gmdate("Y-m-d\TH:i:s\Z", $xmlValue);
+							$xmlType = 'dateTime';
+							break;				
+					}
+					/* Now create the XML Node for the Value */
+					$valueNode = $propertyNode->appendChild($entityDOM->createElement('c:value', $xmlValue));
 					/* Set the Type of the Value */
-					$valueNode->setAttribute('i:type', 'd:'.strtolower($propertyDetails['Type']));
-					$valueNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:d', 'http://www.w3.org/2001/XMLSchema');				
+					$valueNode->setAttribute('i:type', 'd:'.$xmlType);
+					$valueNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:d', $xmlTypeNS);				
 				}
 			}
 		}
@@ -484,6 +500,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				case 'decimal':
 					/* Decimal - Cast the String to a Float */
 					$storedValue = (float)$attributeValue;
+					break;
+				case 'int':
+					/* Int - Cast the String to an Int */
+					$storedValue = (int)$attributeValue;
 					break;
 				case 'OptionSetValue':
 					/* OptionSetValue - We need the Numerical Value for Updates, Text for Display */

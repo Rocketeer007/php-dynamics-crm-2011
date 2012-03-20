@@ -367,7 +367,8 @@ END;
 	$case->Title = 'Test Case - Using DynamicsCRM2011 from PHP';
 	$case->CustomerID = $account;
 	$case->ResponsibleContactId = $contact;
-	//$case->Description = 'This is the case Description, let\'s hope I guessed the field name correctly!';
+	$case->Description = 'This is the case Description, it\'s supposedly a "Memo" field, but actually just treated as a string!';
+	$case->OverriddenCreatedOn = mktime(13, 00, 00, 03, 19, 2012);
 	//echo 'Case Title is now: <'.$case->Title.'> and has '.($case->isChanged('Title')?'definitely':'not').' changed!'.PHP_EOL;
 	//echo 'Case Contact is now: <'.$case->ResponsibleContactId.'> and has '.($case->isChanged('ResponsibleContactId')?'definitely':'not').' changed!'.PHP_EOL;
 	//echo 'Case Account is now: <'.$case->CustomerID.'> and has '.($case->isChanged('CustomerID')?'definitely':'not').' changed!'.PHP_EOL;
@@ -385,10 +386,6 @@ END;
 	echo date('Y-m-d H:i:s')."\tCreating a new Case... ";
 	$caseId = $crmConnector->create($case);
 	echo 'Done'.PHP_EOL;
-	//echo 'Case ID is: '.$caseId.PHP_EOL;
-	//echo 'Case Title is now: <'.$case->Title.'> and has '.($case->isChanged('Title')?'definitely':'not').' changed!'.PHP_EOL;
-	//echo 'Case Contact is now: <'.$case->ResponsibleContactId.'> and has '.($case->isChanged('ResponsibleContactId')?'definitely':'not').' changed!'.PHP_EOL;
-	//echo 'Case Account is now: <'.$case->CustomerID.'> and has '.($case->isChanged('CustomerID')?'definitely':'not').' changed!'.PHP_EOL;
 	echo date('Y-m-d H:i:s')."\t\tCase is now: ".$case.PHP_EOL;
 	
 	echo date('Y-m-d H:i:s')."\tUpdating the Case... ";
@@ -402,13 +399,20 @@ END;
 	echo 'Done'.PHP_EOL;
 	
 	echo PHP_EOL.'Case Details: '.$case.PHP_EOL;
+	echo "\tTitle:       \t".$case->Title.PHP_EOL;
+	echo "\tState:       \t".$case->StateCode->FormattedValue.PHP_EOL;
+	echo "\tCreated On:  \t".date('Y-m-d H:i:s P', $case->CreatedOn).PHP_EOL;
+	echo "\t\tOverridden:\t".date('Y-m-d H:i:s P', $case->OverriddenCreatedOn).PHP_EOL;
+	echo "\tContact Name:\t".$case->ResponsibleContactIdName.PHP_EOL;
+	echo "\tContact:     \t".$case->ResponsibleContactId.PHP_EOL;
+	echo PHP_EOL;
 	var_dump($case);
 	echo PHP_EOL.PHP_EOL;
 	
 	/* Delete the case from the CRM */
-	echo date('Y-m-d H:i:s')."\tDeleting the test Case... ";
-	$deleted = $crmConnector->delete($case);
-	echo 'Done'.PHP_EOL;
+	//echo date('Y-m-d H:i:s')."\tDeleting the test Case... ";
+	//$deleted = $crmConnector->delete($case);
+	//echo 'Done'.PHP_EOL;
 	
 	print_r($deleted);
 	
