@@ -996,46 +996,6 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return an associative Array */
 		return $securityToken;
 	}
-
-	/**
-	 * Utility function to parse time from XML - includes handling Windows systems with no strptime
-	 * @param String $timestamp
-	 * @param String $formatString
-	 * @return integer PHP Timestamp
-	 * @ignore
-	 */
-	protected static function parseTime($timestamp, $formatString) {
-		/* Quick solution: use strptime */
-		if(function_exists("strptime") == true) {
-			$time_array = strptime($timestamp, $formatString);
-		} else {
-			$masks = Array(
-					'%d' => '(?P<d>[0-9]{2})',
-					'%m' => '(?P<m>[0-9]{2})',
-					'%Y' => '(?P<Y>[0-9]{4})',
-					'%H' => '(?P<H>[0-9]{2})',
-					'%M' => '(?P<M>[0-9]{2})',
-					'%S' => '(?P<S>[0-9]{2})',
-					// usw..
-				);
-			$rexep = "#".strtr(preg_quote($formatString), $masks)."#";
-			if(!preg_match($rexep, $timestamp, $out)) return false;
-			$time_array = Array( 
-					"tm_sec"  => (int) $out['S'], 
-					"tm_min"  => (int) $out['M'], 
-					"tm_hour" => (int) $out['H'], 
-					"tm_mday" => (int) $out['d'], 
-					"tm_mon"  => $out['m']?$out['m']-1:0, 
-					"tm_year" => $out['Y'] > 1900 ? $out['Y'] - 1900 : 0, 
-				); 
-				
-				
-		}
-		$phpTimestamp = mktime($time_array['tm_hour'], $time_array['tm_min'], $time_array['tm_sec'],
-				$time_array['tm_mon']+1, $time_array['tm_mday'], 1900+$time_array['tm_year']);
-		return $phpTimestamp;
-
-	}
 	
 	/**
 	 * Get the XML needed to send a login request to the Username & Password Trust service 
@@ -1472,58 +1432,6 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	}
 	
 	/**
-	 * Add a list of Formatted Values to an Array of Attributes, using appropriate handling
-	 * avoiding over-writing existing attributes already in the array 
-	 * 
-	 * Optionally specify an Array of sub-keys, and a particular sub-key
-	 * - If provided, each sub-key in the Array will be created as an Object attribute,
-	 *   and the value will be set on the specified sub-key only (e.g. (New, Old) / New)
-	 * 
-	 * @ignore
-	 */
-	protected static function addFormattedValues(Array &$targetArray, DOMNodeList $keyValueNodes, Array $keys = NULL, $key1 = NULL) {
-		foreach ($keyValueNodes as $keyValueNode) {
-			/* Get the Attribute name (key) */
-			$attributeKey = $keyValueNode->getElementsByTagName('key')->item(0)->textContent;
-			$attributeValue = $keyValueNode->getElementsByTagName('value')->item(0)->textContent;
-			/* If we are working normally, just store the data in the array */
-			if ($keys == NULL) {
-				/* Assume that if there is a duplicate, it's an un-formatted version of this */
-				if (array_key_exists($attributeKey, $targetArray)) {
-					$targetArray[$attributeKey] = (Object)Array(
-							'Value' => $targetArray[$attributeKey], 
-							'FormattedValue' => $attributeValue
-					);
-				} else {
-					$targetArray[$attributeKey] = $attributeValue;
-				}
-			} else {
-				/* Store the data in the array for this AuditRecord's properties */
-				if (array_key_exists($attributeKey, $targetArray)) {
-					/* We assume it's already a "good" Object, and just set this key */
-					if (isset($targetArray[$attributeKey]->$key1)) {
-						/* It's already set, so add the Formatted version */
-						$targetArray[$attributeKey]->$key1 = (Object)Array(
-								'Value' => $targetArray[$attributeKey]->$key1,
-								'FormattedValue' => $attributeValue);
-					} else {
-						/* It's not already set, so just set this as a value */
-						$targetArray[$attributeKey]->$key1 = $attributeValue;
-					}
-				} else {
-					/* We need to create the Object */
-					$obj = (Object)Array();
-					foreach ($keys as $k) { $obj->$k = NULL; }
-					/* And set the particular property */
-					$obj->$key1 = $attributeValue;
-					/* And store the Object in the target Array */
-					$targetArray[$attributeKey] = $obj;
-				}
-			}
-		}
-	}
-	
-	/**
 	 * Parse the results of a RetrieveMultipleRequest into a useable PHP object
 	 * @ignore
 	 */
@@ -1582,9 +1490,12 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	
 	/**
 	 * Parse the results of a RetrieveRequest into a useable PHP object
+	 * @param DynamicsCRM2011_Connector $conn
+	 * @param String $entityLogicalName
+	 * @param String $soapResponse
 	 * @ignore
 	 */
-	protected static function parseRetrieveResponse($soapResponse) {
+	protected static function parseRetrieveResponse(DynamicsCRM2011_Connector $conn, $entityLogicalName, $soapResponse) {
 		/* Load the XML into a DOMDocument */
 		$soapResponseDOM = new DOMDocument();
 		$soapResponseDOM->loadXML($soapResponse);
@@ -1610,34 +1521,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			throw new Exception('Could not find RetrieveResult node in XML provided');
 			return FALSE;
 		}
-		/* Assemble an associative array for the details to return, including mandatory fields */
-		$responseDataArray = Array('Id' => NULL, 'LogicalName' => NULL);
 		
-		/* Loop through the nodes directly beneath the RetrieveResult node */
-		foreach ($retrieveResultNode->childNodes as $childNode) {
-			switch ($childNode->localName) {
-				case 'RelatedEntities':
-					$responseDataArray['RelatedEntities'] = $childNode->nodeValue;
-					break;
-				case 'Attributes':
-					/* Add the Attribute in the Key/Value Pairs of String/AnyType to the array */
-					self::addAttributes($responseDataArray, $childNode->getElementsByTagName('KeyValuePairOfstringanyType'));
-					break;
-				case 'FormattedValues':
-					/* Add the Formatted Values in the Key/Value Pairs of String/String to the Array */
-					self::addFormattedValues($responseDataArray, $childNode->getElementsByTagName('KeyValuePairOfstringstring'));
-					break;
-				case 'Id':
-				case 'LogicalName':
-				case 'EntityState':
-				default:
-					$responseDataArray[$childNode->localName] = $childNode->textContent;
-			}
-		}
-		
-		/* Convert the Array to a stdClass Object */
-		$responseData = (Object)$responseDataArray;
-		return $responseData;
+		/* Generate a new Entity from the DOMNode */
+		$entity = DynamicsCRM2011_Entity::fromDOM($conn, $entityLogicalName, $retrieveResultNode);
+		return $entity;
 	}
 	
 	/**
@@ -1929,16 +1816,18 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 *
 	 * This is particularly useful when debugging the responses from the server
 	 * 
-	 * @param string $entityType the LogicalName of the Entity to be retrieved (Incident, Account etc.)
-	 * @param string $entityId the internal Id of the Entity to be retrieved (without enclosing brackets)
-	 * @param array $columnSet array listing all fields to be fetched, or null to get all columns
+	 * @param DynamicsCRM2011_Entity $entity the Entity to retrieve - must have an ID specified
+	 * @param array $fieldSet array listing all fields to be fetched, or null to get all fields
 	 * @return string the raw XML returned by the server, including all SOAP Envelope, Header and Body data.
 	 */
-	public function retrieveRaw($entityType, $entityId, $columnSet = NULL) {
+	public function retrieveRaw(DynamicsCRM2011_Entity $entity, $fieldSet = NULL) {
+		/* Determine the Type & ID of the Entity */
+		$entityType = $entity->LogicalName;
+		$entityId = $entity->ID;
 		/* Send the sequrity request and get a security token */
 		$securityToken = $this->getOrganizationSecurityToken();
 		/* Generate the XML for the Body of a RetrieveRecordChangeHistory request */
-		$executeNode = self::generateRetrieveRequest($entityType, $entityId, $columnSet);
+		$executeNode = self::generateRetrieveRequest($entityType, $entityId, $fieldSet);
 		/* Turn this into a SOAP request, and send it */
 		$retrieveRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationRetrieveAction(), $securityToken, $executeNode);
 		$soapResponse = self::getSoapResponse($this->organizationURI, $retrieveRequest);
@@ -1952,18 +1841,17 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * as the return value), as it is more efficient to use RetrieveMultiple to search directly if 
 	 * you don't already have the ID.
 	 *
-	 * @param string $entityType the LogicalName of the Entity to be retrieved (Incident, Account etc.)
-	 * @param string $entityId the internal Id of the Entity to be retrieved (without enclosing brackets)
-	 * @param array $columnSet array listing all fields to be fetched, or null to get all columns
-	 * @return stdClass a PHP Object containing all the data retrieved.
+	 * @param DynamicsCRM2011_Entity $entity the Entity to retrieve - must have an ID specified
+	 * @param array $fieldSet array listing all fields to be fetched, or null to get all fields
+	 * @return DynamicsCRM2011_Entity (subclass) a Strongly-Typed Entity containing all the data retrieved.
 	 */
-	public function retrieve($entityType, $entityId, $columnSet = NULL) {
+	public function retrieve(DynamicsCRM2011_Entity $entity, $fieldSet = NULL) {
 		/* Get the raw XML data */
-		$rawSoapResponse = $this->retrieveRaw($entityType, $entityId, $columnSet);
+		$rawSoapResponse = $this->retrieveRaw($entity, $fieldSet);
 		/* Parse the raw XML data into an Object */
-		$soapData = self::parseRetrieveResponse($rawSoapResponse);
+		$newEntity = self::parseRetrieveResponse($this, $entity->LogicalName, $rawSoapResponse);
 		/* Return the structured object */
-		return $soapData;
+		return $newEntity;
 	}
 	
 	/**
