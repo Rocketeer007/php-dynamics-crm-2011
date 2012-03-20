@@ -296,17 +296,21 @@ END;
 	echo date('Y-m-d H:i:s')."\tFetching Case ID for Case ${demoCaseNumber}... ";
 	echo 'Done'.PHP_EOL;
 	$caseIdData = $crmConnector->retrieveMultiple($caseIdQueryXML);
-	/* Get the term used internally to define a "Case" */
-	$caseType = $caseIdData->EntityName;
+	/* Create a Case Entity which can be used to fetch the details */
+	$case = new DynamicsCRM2011_Incident($crmConnector);
 	/* Get the internal ID of the first case returned (should just be one anyway) */
-	$caseId = $caseIdData->Entities[0]->incidentid;
+	$case->ID = $caseIdData->Entities[0]->incidentid;
 	/* Now, get the full details of the Case */
 	echo date('Y-m-d H:i:s')."\tFetching Case data... ";
-	$caseData = $crmConnector->retrieve($caseType, $caseId, Array('incidentid', 'ticketnumber', 'createdon', 'statecode', 'responsiblecontactid'));
+	$caseData = $crmConnector->retrieve($case, Array('incidentid', 'ticketnumber', 'createdon', 'statecode', 'responsiblecontactid', 'title'));
 	echo 'Done'.PHP_EOL;
 	
-	//echo PHP_EOL.PHP_EOL.$caseData.PHP_EOL.PHP_EOL;
-	print_r($caseData);
+	echo PHP_EOL.$case.PHP_EOL;
+	echo "\tTitle:       \t".$caseData->Title.PHP_EOL;
+	echo "\tState:       \t".$caseData->StateCode->FormattedValue.PHP_EOL;
+	echo "\tCreated On:  \t".date('Y-m-d H:i:s', $caseData->CreatedOn).PHP_EOL;
+	echo "\tContact Name:\t".$caseData->ResponsibleContactIdName.PHP_EOL;
+	echo "\tContact:     \t".$caseData->ResponsibleContactId.PHP_EOL;
 }
 
 /* Example 6: Get the full description of the Incident Entity */
@@ -394,9 +398,7 @@ END;
 	
 	/* Fetch the case using the logicalName & ID */
 	echo date('Y-m-d H:i:s')."\tRetrieving the updated Case... ";
-	$crmConnector->setDebug(true);
 	$case = $crmConnector->retrieve($case);
-	$crmConnector->setDebug(false);
 	echo 'Done'.PHP_EOL;
 	
 	echo PHP_EOL.'Case Details: '.$case.PHP_EOL;
