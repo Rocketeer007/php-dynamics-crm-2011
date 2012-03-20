@@ -143,7 +143,7 @@ abstract class DynamicsCRM2011 implements DynamicsCRM2011_Interface {
 	
 	
 		}
-		$phpTimestamp = mktime($time_array['tm_hour'], $time_array['tm_min'], $time_array['tm_sec'],
+		$phpTimestamp = gmmktime($time_array['tm_hour'], $time_array['tm_min'], $time_array['tm_sec'],
 				$time_array['tm_mon']+1, $time_array['tm_mday'], 1900+$time_array['tm_year']);
 		return $phpTimestamp;
 	
