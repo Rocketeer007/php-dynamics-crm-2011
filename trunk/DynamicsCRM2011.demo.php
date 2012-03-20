@@ -406,13 +406,14 @@ END;
 	echo "\tContact Name:\t".$case->ResponsibleContactIdName.PHP_EOL;
 	echo "\tContact:     \t".$case->ResponsibleContactId.PHP_EOL;
 	echo PHP_EOL;
+	$case->printDetails();
 	var_dump($case);
 	echo PHP_EOL.PHP_EOL;
 	
 	/* Delete the case from the CRM */
-	//echo date('Y-m-d H:i:s')."\tDeleting the test Case... ";
-	//$deleted = $crmConnector->delete($case);
-	//echo 'Done'.PHP_EOL;
+	echo date('Y-m-d H:i:s')."\tDeleting the test Case... ";
+	$deleted = $crmConnector->delete($case);
+	echo 'Done'.PHP_EOL;
 	
 	print_r($deleted);
 	
