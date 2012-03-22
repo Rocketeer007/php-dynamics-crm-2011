@@ -17,6 +17,8 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	protected $mandatories = Array();
 	/* The ID of the Entity */
 	private $entityID;
+	/* The Domain/URL of the Dynamics CRM 2011 Server where this is stored */
+	private $entityDomain = NULL;
 	
 	/**
 	 * 
@@ -38,6 +40,8 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		if ($this->entityLogicalName == NULL) {
 			throw new Execption('Cannot instantiate an abstract Entity - specify the Logical Name');
 		}
+		/* Set the Domain that this Entity is associated with */
+		$this->setEntityDomain($conn);
 		/* Check if the Definition of this Entity is Cached on the Connector */
 		if ($conn->isEntityDefinitionCached($this->entityLogicalName)) {
 			/* Use the Cached values */
@@ -560,7 +564,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	
 	public function printDetails($recursive = false, $tabLevel = 0) {
 		/* Print the Entity Summary at current Tab level */
-		echo str_repeat("\t", $tabLevel).$this.PHP_EOL;
+		echo str_repeat("\t", $tabLevel).$this.' ('.$this->getURL(true).')'.PHP_EOL;
 		/* Increment the tabbing level */
 		$tabLevel++;
 		$linePrefix = str_repeat("\t", $tabLevel);
@@ -619,6 +623,37 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					echo $linePrefix."\t".'('.$propertyDetails['Type'].') '.print_r($propertyDetails['Value'], true).PHP_EOL;
 			}
 		}
+	}
+	
+	public function getURL($absolute = false) {
+		/* Cannot return a URL for an Entity with no ID */
+		if ($this->entityID == NULL) return NULL;
+		/* The "relative" part of the Entity URL */
+		$entityURL = 'main.aspx?etn='.$this->entityLogicalName.'&pagetype=entityrecord&id='.$this->entityID;
+		/* If we want an Absolute URL, pre-pend the Domain for the Entity */
+		if ($absolute) {
+			return $this->entityDomain.$entityURL;
+		} else {
+			return $entityURL;
+		}
+	}
+	
+	/**
+	 * Update the Domain Name that this Entity will use when constructing an absolute URL
+	 * @param DynamicsCRM2011_Connector $conn Connection to the Server currently used
+	 */
+	protected function setEntityDomain(DynamicsCRM2011_Connector $conn) {
+		/* Get the URL of the Organization */
+		$organizationURL = $conn->getOrganizationURI();
+		$urlDetails = parse_url($organizationURL);
+		/* Generate the base URL for Entities */
+		$domainURL = $urlDetails['scheme'].'://'.$urlDetails['host'].'/';
+		/* If the Organization Unique Name is part of the Organization URL, add it to the Domain */
+		if (strstr($organizationURL, $conn->getOrganization()) !== FALSE) {
+			$domainURL = $domainURL . $conn->getOrganization() .'/';
+		}
+		/* Update the Entity */
+		$this->entityDomain = $domainURL;
 	}
 }
 
