@@ -369,16 +369,13 @@ END;
 	$case->ResponsibleContactId = $contact;
 	$case->Description = 'This is the case Description, it\'s supposedly a "Memo" field, but actually just treated as a string!';
 	$case->OverriddenCreatedOn = mktime(13, 00, 00, 03, 19, 2012);
-	//echo 'Case Title is now: <'.$case->Title.'> and has '.($case->isChanged('Title')?'definitely':'not').' changed!'.PHP_EOL;
-	//echo 'Case Contact is now: <'.$case->ResponsibleContactId.'> and has '.($case->isChanged('ResponsibleContactId')?'definitely':'not').' changed!'.PHP_EOL;
-	//echo 'Case Account is now: <'.$case->CustomerID.'> and has '.($case->isChanged('CustomerID')?'definitely':'not').' changed!'.PHP_EOL;
 	/* Before Creating the Case, check if any Mandatory fields are missing */
-	$missingFields = Array();
-	if (!$case->checkMandatories($missingFields)) {
-		echo 'Missing Mandatory Fields: '.PHP_EOL;
-		print_r($missingFields);
-		echo PHP_EOL.PHP_EOL;
-	} 
+// 	$missingFields = Array();
+// 	if (!$case->checkMandatories($missingFields)) {
+// 		echo 'Missing Mandatory Fields: '.PHP_EOL;
+// 		print_r($missingFields);
+// 		echo PHP_EOL.PHP_EOL;
+// 	} 
 	/* Note that Dynamics CRM 2011 often recovers from missing Mandatory fields, so
 	 * we can continue and try and create the case anyway - in fact, the only 
 	 * truly required fields seem to be Title and CustomerId
@@ -406,15 +403,13 @@ END;
 	echo "\tContact Name:\t".$case->ResponsibleContactIdName.PHP_EOL;
 	echo "\tContact:     \t".$case->ResponsibleContactId.PHP_EOL;
 	echo PHP_EOL;
-	$case->printDetails();
-	var_dump($case);
+	$case->printDetails(true);
 	echo PHP_EOL.PHP_EOL;
 	
 	/* Delete the case from the CRM */
 	echo date('Y-m-d H:i:s')."\tDeleting the test Case... ";
-	$deleted = $crmConnector->delete($case);
+	//$deleted = $crmConnector->delete($case);
 	echo 'Done'.PHP_EOL;
-	
 	print_r($deleted);
 	
 }
