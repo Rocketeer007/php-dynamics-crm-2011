@@ -1058,7 +1058,13 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		curl_setopt($cURLHandle, CURLOPT_POST, 1);
 		curl_setopt($cURLHandle, CURLOPT_POSTFIELDS, $content);
 		curl_setopt($cURLHandle, CURLOPT_HEADER, false);
+		/* Execute the cURL request, get the XML response */
 		$responseXML = curl_exec($cURLHandle);
+		/* Check for cURL errors */
+		if (curl_errno($cURLHandle) != CURLE_OK) {
+			throw new Exception('cURL Error: '.curl_error($cURLHandle));
+		}
+		/* Check for HTTP errors */
 		$httpResponse = curl_getinfo($cURLHandle, CURLINFO_HTTP_CODE);
 		curl_close($cURLHandle);
 		
