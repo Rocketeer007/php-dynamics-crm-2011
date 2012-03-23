@@ -1087,13 +1087,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		if (self::$debugMode) echo __FUNCTION__.': SOAP Action in returned XML is "'.$actionString.'"'.PHP_EOL;
 		
 		/* Handle known Error Actions */
-		if ($actionString == 'http://schemas.microsoft.com/net/2005/12/windowscommunicationfoundation/dispatcher/fault'
-				|| $actionString == 'http://www.w3.org/2005/08/addressing/soap/fault'
-				|| $actionString == 'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/ExecuteOrganizationServiceFaultFault'
-				|| $actionString == 'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/CreateOrganizationServiceFaultFault'
-				|| $actionString == 'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/UpdateOrganizationServiceFaultFault'
-				|| $actionString == 'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/DeleteOrganizationServiceFaultFault'
-			) {
+		if (in_array($actionString, self::$SOAPFaultActions)) {
 			// Get the Fault Code
 			$faultCode = $responseDOM->getElementsByTagNameNS('http://www.w3.org/2003/05/soap-envelope', 'Envelope')->item(0)
 				->getElementsByTagNameNS('http://www.w3.org/2003/05/soap-envelope', 'Body')->item(0)
