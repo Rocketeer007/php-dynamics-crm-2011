@@ -370,12 +370,12 @@ END;
 	$case->Description = 'This is the case Description, it\'s supposedly a "Memo" field, but actually just treated as a string!';
 	$case->OverriddenCreatedOn = mktime(13, 00, 00, 03, 19, 2012);
 	/* Before Creating the Case, check if any Mandatory fields are missing */
-// 	$missingFields = Array();
-// 	if (!$case->checkMandatories($missingFields)) {
-// 		echo 'Missing Mandatory Fields: '.PHP_EOL;
-// 		print_r($missingFields);
-// 		echo PHP_EOL.PHP_EOL;
-// 	} 
+ 	$missingFields = Array();
+ 	if (!$case->checkMandatories($missingFields)) {
+ 		echo 'Missing Mandatory Fields: '.PHP_EOL;
+ 		print_r($missingFields);
+ 		echo PHP_EOL.PHP_EOL;
+ 	} 
 	/* Note that Dynamics CRM 2011 often recovers from missing Mandatory fields, so
 	 * we can continue and try and create the case anyway - in fact, the only 
 	 * truly required fields seem to be Title and CustomerId
@@ -387,6 +387,8 @@ END;
 	
 	echo date('Y-m-d H:i:s')."\tUpdating the Case... ";
 	$case->Title = 'Test Case - Using DynamicsCRM2011 from PHP - Updated';
+	$case->StatusCode = (Object)Array('Value' => 1, 'FormattedValue' => '');
+	$case->PriorityCode = (Object)Array('Value' => 3, 'FormattedValue' => '');
 	$updated = $crmConnector->update($case);
 	echo 'Done'.PHP_EOL;
 	
@@ -397,7 +399,8 @@ END;
 	
 	echo PHP_EOL.'Case Details: '.$case.PHP_EOL;
 	echo "\tTitle:       \t".$case->Title.PHP_EOL;
-	echo "\tState:       \t".$case->StateCode->FormattedValue.PHP_EOL;
+	echo "\tStatus:       \t".$case->StatusCode->FormattedValue.PHP_EOL;
+	echo "\tPriority:       \t".$case->PriorityCode->FormattedValue.PHP_EOL;
 	echo "\tCreated On:  \t".date('Y-m-d H:i:s P', $case->CreatedOn).PHP_EOL;
 	echo "\t\tOverridden:\t".date('Y-m-d H:i:s P', $case->OverriddenCreatedOn).PHP_EOL;
 	echo "\tContact Name:\t".$case->ResponsibleContactIdName.PHP_EOL;
@@ -408,7 +411,7 @@ END;
 	
 	/* Delete the case from the CRM */
 	echo date('Y-m-d H:i:s')."\tDeleting the test Case... ";
-	//$deleted = $crmConnector->delete($case);
+	$deleted = $crmConnector->delete($case);
 	echo 'Done'.PHP_EOL;
 	print_r($deleted);
 	

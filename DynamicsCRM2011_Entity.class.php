@@ -343,6 +343,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				} else {
 					/* Determine the Type, Value and XML Namespace for this field */
 					$xmlValue = $propertyDetails['Value'];
+					$xmlValueChild = NULL;
 					$xmlType = strtolower($propertyDetails['Type']);
 					$xmlTypeNS = 'http://www.w3.org/2001/XMLSchema';
 					/* Special Handing for certain types of field */
@@ -356,9 +357,23 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 							$xmlValue = gmdate("Y-m-d\TH:i:s\Z", $xmlValue);
 							$xmlType = 'dateTime';
 							break;
+						case 'uniqueidentifier':
+							/* Uniqueidentifier - This gets treated as a guid */
+							$xmlType = 'guid';
+							break;
+						case 'picklist':
+						case 'state':
+						case 'status':
+							/* OptionSetValue - Just get the numerical value */
+							$xmlType = 'OptionSetValue';
+							$xmlTypeNS = 'http://schemas.microsoft.com/xrm/2011/Contracts';
+							$xmlValue = NULL;
+							$xmlValueChild = $entityDOM->createElement('b:Value', $propertyDetails['Value']->Value);
+							break;
 						case 'string':
 						case 'int':
 						case 'decimal':
+						case 'guid':
 							/* No special handling for these types */
 							break;
 						default:
@@ -367,10 +382,14 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 									E_USER_WARNING);
 					}
 					/* Now create the XML Node for the Value */
-					$valueNode = $propertyNode->appendChild($entityDOM->createElement('c:value', $xmlValue));
+					$valueNode = $propertyNode->appendChild($entityDOM->createElement('c:value'));
 					/* Set the Type of the Value */
 					$valueNode->setAttribute('i:type', 'd:'.$xmlType);
-					$valueNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:d', $xmlTypeNS);				
+					$valueNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:d', $xmlTypeNS);
+					/* If there is a child node needed, append it */
+					if ($xmlValueChild != NULL) $valueNode->appendChild($xmlValueChild);
+					/* If there is a value, set it */
+					if ($xmlValue != NULL) $valueNode->appendChild(new DOMText($xmlValue));
 				}
 			}
 		}
@@ -524,6 +543,13 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					$storedValue = (Object)Array(
 							'Value' => $optionSetValue, 
 							'FormattedValue' => $formattedValues[$attributeKey]);
+					/* Check if we have a matching "xxxName" property, and set that too */
+					if (array_key_exists($attributeKey.'name', $this->properties)) {
+						/* Don't overwrite something that's already set */
+						if ($this->properties[$attributeKey.'name']['Value'] == NULL) {
+							$this->properties[$attributeKey.'name']['Value'] = $formattedValues[$attributeKey];
+						}
+					}
 					break;
 				case 'EntityReference':
 					/* EntityReference - We need the Id and Type to create a placeholder Entity */
