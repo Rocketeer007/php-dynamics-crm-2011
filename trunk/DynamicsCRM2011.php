@@ -1,11 +1,25 @@
 <?php
 
 interface DynamicsCRM2011_Interface {
+	/** Default GUID for "not known" or new Entities */
 	const EmptyGUID = '00000000-0000-0000-0000-000000000000';
+	/** Maximum number of records in a single RetrieveMultiple */
 	const MAX_CRM_RECORDS = 5000;
 }
 
 abstract class DynamicsCRM2011 implements DynamicsCRM2011_Interface {
+	/** List of recognised SOAP Faults that can be returned by MS Dynamics CRM */
+	public static $SOAPFaultActions = Array(
+			'http://www.w3.org/2005/08/addressing/soap/fault',
+			'http://schemas.microsoft.com/net/2005/12/windowscommunicationfoundation/dispatcher/fault',
+			'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/ExecuteOrganizationServiceFaultFault',
+			'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/CreateOrganizationServiceFaultFault',
+			'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/RetrieveOrganizationServiceFaultFault',
+			'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/UpdateOrganizationServiceFaultFault',
+			'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/DeleteOrganizationServiceFaultFault',
+			'http://schemas.microsoft.com/xrm/2011/Contracts/Services/IOrganizationService/RetrieveMultipleOrganizationServiceFaultFault',
+			);
+	
 	/* Internal details */
 	protected static $debugMode = FALSE;
 	
