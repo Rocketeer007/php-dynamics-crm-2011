@@ -1852,6 +1852,12 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @return DynamicsCRM2011_Entity (subclass) a Strongly-Typed Entity containing all the data retrieved.
 	 */
 	public function retrieve(DynamicsCRM2011_Entity $entity, $fieldSet = NULL) {
+		/* Only allow "Retrieve" for an Entity with an ID */
+		if ($entity->ID == self::EmptyGUID) {
+			throw new Exception('Cannot Retrieve an Entity without an ID.');
+			return FALSE;
+		}
+		
 		/* Get the raw XML data */
 		$rawSoapResponse = $this->retrieveRaw($entity, $fieldSet);
 		/* Parse the raw XML data into an Object */
@@ -1903,6 +1909,12 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param DynamicsCRM2011_Entity $entity the Entity to create
 	 */
 	public function create(DynamicsCRM2011_Entity &$entity) {
+		/* Only allow "Create" for an Entity with no ID */
+		if ($entity->ID != self::EmptyGUID) {
+			throw new Exception('Cannot Create an Entity that already exists.');
+			return FALSE;
+		}
+		
 		/* Send the sequrity request and get a security token */
 		$securityToken = $this->getOrganizationSecurityToken();
 		/* Generate the XML for the Body of a Create request */
@@ -2021,6 +2033,12 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param DynamicsCRM2011_Entity $entity the Entity to delete
 	 */
 	public function delete(DynamicsCRM2011_Entity &$entity) {
+		/* Only allow "Delete" for an Entity with an ID */
+		if ($entity->ID == self::EmptyGUID) {
+			throw new Exception('Cannot Delete an Entity without an ID.');
+			return FALSE;
+		}
+		
 		/* Send the sequrity request and get a security token */
 		$securityToken = $this->getOrganizationSecurityToken();
 		/* Generate the XML for the Body of a Delete request */
@@ -2073,6 +2091,12 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param DynamicsCRM2011_Entity $entity the Entity to update
 	 */
 	public function update(DynamicsCRM2011_Entity &$entity) {
+		/* Only allow "Update" for an Entity with an ID */
+		if ($entity->ID == self::EmptyGUID) {
+			throw new Exception('Cannot Update an Entity without an ID.');
+			return FALSE;
+		}
+		
 		/* Send the sequrity request and get a security token */
 		$securityToken = $this->getOrganizationSecurityToken();
 		/* Generate the XML for the Body of an Update request */
