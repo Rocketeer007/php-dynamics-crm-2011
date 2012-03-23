@@ -1974,10 +1974,14 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param SimpleXMLElement $entityData
 	 * @param Array $propertiesArray
 	 * @param Array $mandatoriesArray
+	 * @param Array $optionSetsArray
 	 */
-	public function setCachedEntityDefinition($entityLogicalName, SimpleXMLElement $entityData, Array $propertiesArray, Array $mandatoriesArray) {
+	public function setCachedEntityDefinition($entityLogicalName, 
+			SimpleXMLElement $entityData, Array $propertiesArray, Array $mandatoriesArray,
+			Array $optionSetsArray) {
 		/* Store the details of the Entity Definition in the Cache */
-		$this->cachedEntityDefintions[$entityLogicalName] = Array($entityData, $propertiesArray, $mandatoriesArray);
+		$this->cachedEntityDefintions[$entityLogicalName] = Array(
+				$entityData, $propertiesArray, $mandatoriesArray, $optionSetsArray);
 	}
 	
 	/**
@@ -1987,21 +1991,26 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param SimpleXMLElement $entityData
 	 * @param Array $propertiesArray
 	 * @param Array $mandatoriesArray
+	 * @param Array $optionSetsArray
 	 * @return boolean true if the Cache was retrieved
 	 */
-	public function getCachedEntityDefinition($entityLogicalName, &$entityData, Array &$propertiesArray, Array &$mandatoriesArray) {
+	public function getCachedEntityDefinition($entityLogicalName, 
+			&$entityData, Array &$propertiesArray, Array &$mandatoriesArray,
+			Array &$optionSetsArray) {
 		/* Check that this Entity Definition has been Cached */
 		if ($this->isEntityDefinitionCached($entityLogicalName)) {
 			/* Populate the containers and return true */
 			$entityData = $this->cachedEntityDefintions[$entityLogicalName][0];
 			$propertiesArray = $this->cachedEntityDefintions[$entityLogicalName][1];
 			$mandatoriesArray = $this->cachedEntityDefintions[$entityLogicalName][2];
+			$optionSetsArray = $this->cachedEntityDefintions[$entityLogicalName][3];
 			return true;
 		} else {
 			/* Not found - clear passed containers and return false */
 			$entityData = NULL;
 			$propertiesArray = NULL;
 			$mandatoriesArray = NULL;
+			$optionSetsArray = NULL;
 			return false;
 		}
 	}

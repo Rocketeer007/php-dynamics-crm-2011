@@ -15,6 +15,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	/* The Properties of the Entity */
 	protected $properties = Array();
 	protected $mandatories = Array();
+	protected $optionSets = Array();
 	/* The ID of the Entity */
 	private $entityID;
 	/* The Domain/URL of the Dynamics CRM 2011 Server where this is stored */
@@ -46,7 +47,8 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		if ($conn->isEntityDefinitionCached($this->entityLogicalName)) {
 			/* Use the Cached values */
 			$isDefined = $conn->getCachedEntityDefinition($this->entityLogicalName, 
-					$this->entityData, $this->properties, $this->mandatories);
+					$this->entityData, $this->properties, $this->mandatories,
+					$this->optionSets);
 			if ($isDefined) return;	
 		}
 		
@@ -72,9 +74,88 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			}
 			/* Check if this field is mandatory */
 			$requiredLevel = (String)$attribute->RequiredLevel->children('http://schemas.microsoft.com/xrm/2011/Contracts')->Value;
+			/* If this is an OptionSet, determine the OptionSet details */
+			if (!empty($attribute->OptionSet)) {
+				/* Determine the Name of the OptionSet */
+				$optionSetName = (String)$attribute->OptionSet->Name;
+				$optionSetGlobal = ($attribute->OptionSet->IsGlobal == 'true');
+				/* Determine the Type of the OptionSet */
+				$optionSetType = (String)$attribute->OptionSet->OptionSetType;
+				/* Array to store the Options for this OptionSet */
+				$optionSetValues = Array();
+				
+				/* Debug logging - Identify the OptionSet */
+				if (self::$debugMode) {
+					echo 'Attribute '.(String)$attribute->SchemaName.' is an OptionSet'.PHP_EOL;
+					echo "\tName:\t".$optionSetName.($optionSetGlobal ? ' (Global)' : '').PHP_EOL;
+					echo "\tType:\t".$optionSetType.PHP_EOL;
+				}
+				
+				/* Handle the different types of OptionSet */
+				switch ($optionSetType) {
+					case 'Boolean':
+						/* Parse the FalseOption */
+						$value = (int)$attribute->OptionSet->FalseOption->Value;
+						$label = (String)$attribute->OptionSet->FalseOption->Label->children('http://schemas.microsoft.com/xrm/2011/Contracts')->UserLocalizedLabel->Label;
+						$optionSetValues[$value] = $label;
+						/* Parse the TrueOption */
+						$value = (int)$attribute->OptionSet->TrueOption->Value;
+						$label = (String)$attribute->OptionSet->TrueOption->Label->children('http://schemas.microsoft.com/xrm/2011/Contracts')->UserLocalizedLabel->Label;
+						$optionSetValues[$value] = $label;
+						break;
+					case 'State':
+					case 'Status':
+					case 'Picklist':
+						/* Loop through the available Options */
+						foreach ($attribute->OptionSet->Options->OptionMetadata as $option) {
+							/* Parse the Option */
+							$value = (int)$option->Value;
+							$label = (String)$option->Label->children('http://schemas.microsoft.com/xrm/2011/Contracts')->UserLocalizedLabel->Label;
+							/* Check for duplicated Values */
+							if (array_key_exists($value, $optionSetValues)) {
+								trigger_error('Option '.$label.' of OptionSet '.$optionSetName.' used by field '.(String)$attribute->SchemaName.' has the same Value as another Option in this Set',
+										E_USER_WARNING);
+							} else {
+								/* Store the Option */
+								$optionSetValues[$value] = $label;
+							}
+						}
+						break;
+					default:
+						/* If we're using Default, Warn user that the OptionSet handling is not defined */
+						trigger_error('No OptionSet handling implemented for Type '.$optionSetType.' used by field '.(String)$attribute->SchemaName,
+								E_USER_WARNING);
+				}
+				
+				/* DebugLogging - Identify the OptionSet Values */
+				if (self::$debugMode) {
+					foreach ($optionSetValues as $value => $label) {
+						echo "\t\tOption ".$value.' => '.$label.PHP_EOL;
+					}
+				}
+				
+				/* Save this OptionSet in the Design */
+				if (array_key_exists($optionSetName, $this->optionSets)) {
+					/* If this isn't a Global OptionSet, warn of the name clash */
+					if (!$optionSetGlobal) {
+						trigger_error('OptionSet '.$optionSetName.' used by field '.(String)$attribute->SchemaName.' has a name clash with another OptionSet!',
+								E_USER_WARNING);
+					}
+				} else {
+					/* Not already present - store the details */
+					$this->optionSets[$optionSetName] = $optionSetValues;
+				}
+			} else {
+				/* Not an OptionSet */
+				$optionSetName = NULL;
+			}
 			/* Add this property to the Object's Property array */
 			$this->properties[strtolower((String)$attribute->LogicalName)] = Array(
 					'Label' => (String)$attribute->DisplayName->children('http://schemas.microsoft.com/xrm/2011/Contracts')->UserLocalizedLabel->Label,
+					'Description' => (String)$attribute->Description->children('http://schemas.microsoft.com/xrm/2011/Contracts')->UserLocalizedLabel->Label,
+					'isCustom' => ((String)$attribute->IsCustomAttribute === 'true'),
+					'isPrimaryId' => ((String)$attribute->IsPrimaryId === 'true'),
+					'isPrimaryName' => ((String)$attribute->IsPrimaryName === 'true'),
 					'Type'  => (String)$attribute->AttributeType,
 					'isLookup' => $isLookup,
 					'lookupTypes' => $lookupTypes,
@@ -83,6 +164,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					'Read'   => ((String)$attribute->IsValidForRead === 'true'),
 					'RequiredLevel' => $requiredLevel,
 					'AttributeOf' => (String)$attribute->AttributeOf,
+					'OptionSet' => $optionSetName,
 					'Value'  => NULL,
 					'Changed' => false,
 				);
@@ -94,7 +176,8 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		
 		/* Finally, ensure that this Entity Definition is Cached for next time */
 		$conn->setCachedEntityDefinition($this->entityLogicalName, 
-				$this->entityData, $this->properties, $this->mandatories);
+				$this->entityData, $this->properties, $this->mandatories,
+				$this->optionSets);
 		return;
 	}
 	
@@ -178,27 +261,80 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		if ($this->properties[$property]['isLookup']) {
 			/* Check the new value is an Entity */
 			if (!$value instanceOf self) {
+				$trace = debug_backtrace();
 				trigger_error('Property '.$property.' of the '.$this->entityLogicalName
-						.' entity must be a '.get_class(), E_USER_ERROR);
+						.' entity must be a '.get_class()
+						. ' in ' . $trace[0]['file'] . ' on line ' . $trace[0]['line'],
+						E_USER_ERROR);
 				return;
 			}
 			/* Check the new value is the right type of Entity */
 			if (!in_array($value->entityLogicalName, $this->properties[$property]['lookupTypes'])) {
+				$trace = debug_backtrace();
 				trigger_error('Property '.$property.' of the '.$this->entityLogicalName
-						.' entity must be a '.implode(' or ', $this->properties[$property]['lookupTypes']), E_USER_ERROR);
+						.' entity must be a '.implode(' or ', $this->properties[$property]['lookupTypes'])
+						. ' in ' . $trace[0]['file'] . ' on line ' . $trace[0]['line'],
+						E_USER_ERROR);
 				return;
 			}
-		} 
-		/* Update the property value with whatever value was passed */
-		switch ($this->properties[$property]['Type']) {
-			case 'EntityReference':
-				/* In addition to the setting the field, also clear any existing "AttributeOf" this field */
-				$this->clearAttributesOf($property);
-				$this->properties[$property]['Value'] = $value;
-				break;
-			default:
-				$this->properties[$property]['Value'] = $value;
+			/* Clear any AttributeOf related to this field */
+			$this->clearAttributesOf($property);
 		}
+		/* If this is an OptionSet field, it MUST be set to a valid OptionSetValue
+		 * according to the definition of the OptionSet
+		 */
+		if ($this->properties[$property]['OptionSet'] != NULL) {
+			/* Which OptionSet is used? */
+			$optionSetName = $this->properties[$property]['OptionSet'];
+			/* Container for the final value */
+			$optionSetValue = NULL;
+			
+			/* Handle passing a String value */
+			if (is_string($value)) {
+				/* Look for an option with this label */
+				foreach ($this->optionSets[$optionSetName] as $optionValue => $optionLabel) {
+					/* Check for a case-insensitive match */
+					if (strcasecmp($value, $optionLabel) == 0) {
+						/* Create the Value object */
+						$optionSetValue = new DynamicsCRM2011_OptionSetValue($optionValue, $optionLabel);
+						break;
+					}
+				}
+			}
+			/* Handle passing an Integer value */
+			if (is_int($value)) {
+				/* Look for an option with this value */
+				if (array_key_exists($value, $this->optionSets[$optionSetName])) {
+					/* Create the Value object */
+					$optionSetValue = new DynamicsCRM2011_OptionSetValue($value, $this->optionSets[$optionSetName][$value]);
+				}
+			}
+			/* Handle passing an OptionSetValue */
+			if ($value instanceof DynamicsCRM2011_OptionSetValue) {
+				/* Check it's a valid option (by Value) */
+				if (array_key_exists($value->Value, $this->optionSets[$optionSetName])) {
+					/* Copy the Value object */
+					$optionSetValue = $value;
+				}
+			}
+			
+			/* Check we found a valid OptionSetValue */
+			if ($optionSetValue != NULL) {
+				/* Set the value to be retained */
+				$value = $optionSetValue;
+				/* Clear any AttributeOf related to this field */
+				$this->clearAttributesOf($property);
+			} else {
+				$trace = debug_backtrace();
+				trigger_error('Property '.$property.' of the '.$this->entityLogicalName
+						.' entity must be a valid OptionSetValue of type '.$optionSetName
+						. ' in ' . $trace[0]['file'] . ' on line ' . $trace[0]['line'],
+						E_USER_WARNING);
+				return;
+			}
+		}	
+		/* Update the property value with whatever value was passed */
+		$this->properties[$property]['Value'] = $value;
 		/* Mark the property as changed */
 		$this->properties[$property]['Changed'] = true;
 	}
@@ -540,9 +676,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				case 'OptionSetValue':
 					/* OptionSetValue - We need the Numerical Value for Updates, Text for Display */
 					$optionSetValue = (int)$attributeValue = $keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('Value')->item(0)->textContent;
-					$storedValue = (Object)Array(
-							'Value' => $optionSetValue, 
-							'FormattedValue' => $formattedValues[$attributeKey]);
+					$storedValue = new DynamicsCRM2011_OptionSetValue($optionSetValue, $formattedValues[$attributeKey]);
 					/* Check if we have a matching "xxxName" property, and set that too */
 					if (array_key_exists($attributeKey.'name', $this->properties)) {
 						/* Don't overwrite something that's already set */
@@ -601,8 +735,8 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		foreach ($propertyList as $property) {
 			/* Get the details of the Property */
 			$propertyDetails = $this->properties[$property];
-			/* If there's no Label, don't display it */
-			if ($propertyDetails['Label'] == NULL) continue;
+			/* In Recursive Mode, don't display "AttributeOf" fields */
+			if ($recursive && $propertyDetails['AttributeOf'] != NULL) continue;
 			/* Output the Property Name & Description */
 			echo $linePrefix.$property.' ['.$propertyDetails['Label'].']: ';
 			/* For NULL values, just output NULL and the Type on one line */
@@ -631,9 +765,6 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				case 'Picklist':
 				case 'State':
 				case 'Status':
-					/* OptionSetValue - Numerical Value for Info, Text for Display */
-					echo $linePrefix."\t".'['.$propertyDetails['Value']->Value.'] '.$propertyDetails['Value']->FormattedValue.PHP_EOL;
-					break;
 				case 'Decimal':
 				case 'Uniqueidentifier':
 				case 'Memo':

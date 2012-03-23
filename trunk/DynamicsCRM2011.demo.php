@@ -387,8 +387,8 @@ END;
 	
 	echo date('Y-m-d H:i:s')."\tUpdating the Case... ";
 	$case->Title = 'Test Case - Using DynamicsCRM2011 from PHP - Updated';
-	$case->StatusCode = (Object)Array('Value' => 1, 'FormattedValue' => '');
-	$case->PriorityCode = (Object)Array('Value' => 3, 'FormattedValue' => '');
+	$case->StatusCode = 1;
+	$case->PriorityCode = 'Low';
 	$updated = $crmConnector->update($case);
 	echo 'Done'.PHP_EOL;
 	
@@ -399,8 +399,8 @@ END;
 	
 	echo PHP_EOL.'Case Details: '.$case.PHP_EOL;
 	echo "\tTitle:       \t".$case->Title.PHP_EOL;
-	echo "\tStatus:       \t".$case->StatusCode->FormattedValue.PHP_EOL;
-	echo "\tPriority:       \t".$case->PriorityCode->FormattedValue.PHP_EOL;
+	echo "\tStatus:       \t".$case->StatusCode->Label.PHP_EOL;
+	echo "\tPriority:       \t".$case->PriorityCode->Label.PHP_EOL;
 	echo "\tCreated On:  \t".date('Y-m-d H:i:s P', $case->CreatedOn).PHP_EOL;
 	echo "\t\tOverridden:\t".date('Y-m-d H:i:s P', $case->OverriddenCreatedOn).PHP_EOL;
 	echo "\tContact Name:\t".$case->ResponsibleContactIdName.PHP_EOL;
