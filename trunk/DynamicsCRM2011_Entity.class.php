@@ -48,7 +48,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			/* Use the Cached values */
 			$isDefined = $conn->getCachedEntityDefinition($this->entityLogicalName, 
 					$this->entityData, $this->properties, $this->mandatories,
-					$this->optionSets);
+					$this->optionSets, $this->entityDisplayName);
 			if ($isDefined) return;	
 		}
 		
@@ -149,6 +149,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				/* Not an OptionSet */
 				$optionSetName = NULL;
 			}
+			/* If this is the Primary Name of the Entity, set the Display Name to match */
+			if ((String)$attribute->IsPrimaryName === 'true') {
+				$this->entityDisplayName = strtolower((String)$attribute->LogicalName);
+			}
 			/* Add this property to the Object's Property array */
 			$this->properties[strtolower((String)$attribute->LogicalName)] = Array(
 					'Label' => (String)$attribute->DisplayName->children('http://schemas.microsoft.com/xrm/2011/Contracts')->UserLocalizedLabel->Label,
@@ -177,7 +181,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Finally, ensure that this Entity Definition is Cached for next time */
 		$conn->setCachedEntityDefinition($this->entityLogicalName, 
 				$this->entityData, $this->properties, $this->mandatories,
-				$this->optionSets);
+				$this->optionSets, $this->entityDisplayName);
 		return;
 	}
 	
@@ -706,6 +710,72 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 						}
 					}
 					break;
+				case 'AliasedValue':
+					/* For an AliasedValue, we need to find the Alias first */
+					list($aliasName, $aliasedFieldName) = explode('.', $attributeKey);
+					/* Get the Entity type that is being Aliased */
+					$aliasEntityName = $keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('EntityLogicalName')->item(0)->textContent;
+					/* Get the Field of the Entity that is being Aliased */
+					$aliasedFieldName = $keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('AttributeLogicalName')->item(0)->textContent;
+					/* Next, check if this Alias already has been used */
+					if (array_key_exists($aliasName, $this->properties)) {
+						/* Get the existing Entity */
+						$storedValue = $this->properties[$aliasName]['Value'];
+						/* Check it's the right type */
+						if ($storedValue->logicalName != $aliasEntityName) {
+							trigger_error('Alias '.$aliasName.' was created as a '.$storedValue->logicalName.' but is now referenced as a '.$aliasEntityName.' in field '.$attributeKey,
+									E_USER_WARNING);
+						}
+					} else {
+						/* Create a new Entity of the appropriate type */
+						$storedValue = self::fromLogicalName($conn, $aliasEntityName);
+						/* Create a new Attribute on this Entity for the Alias */
+						$this->properties[$aliasName] = Array(
+								'Label' => 'AliasedValue: '.$aliasName,
+								'Description' => 'Related '.$aliasEntityName.' with alias '.$aliasName,
+								'isCustom' => true,
+								'isPrimaryId' => false,
+								'isPrimaryName' => false,
+								'Type'  => 'AliasedValue',
+								'isLookup' => false,
+								'lookupTypes' => NULL,
+								'Create' => false,
+								'Update' => false,
+								'Read'   => true,
+								'RequiredLevel' => 'None',
+								'AttributeOf' => NULL,
+								'OptionSet' => NULL,
+								'Value'  => NULL,
+								'Changed' => false,
+							);
+					}
+					/* Re-create the DOMElement for just this Attribute */
+					$aliasDoc = new DOMDocument();
+					$aliasAttributesNode = $aliasDoc->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:Attributes'));
+					$aliasAttributeNode = $aliasAttributesNode->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:KeyValuePairOfstringanyType'));
+					$aliasAttributeNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:key', $aliasedFieldName));
+					$aliasAttributeValueNode = $aliasAttributeNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:value'));
+					/* Ensure we have all the child nodes of the Value */
+					foreach ($keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('Value')->item(0)->childNodes as $child){
+						$aliasAttributeValueNode->appendChild($aliasDoc->importNode($child, true));
+					}
+					/* Ensure we have the Type attribute, with Namespace */
+					$aliasAttributeValueNode->setAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'i:type', 
+							$keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('Value')->item(0)->getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'type'));
+					/* Re-create the DOMElement for this Attribute's FormattedValue */
+					$aliasFormattedValuesNode = $aliasDoc->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:FormattedValues'));
+					$aliasFormattedValuesNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:c', 'http://schemas.datacontract.org/2004/07/System.Collections.Generic');
+					/* Check there is a formatted value to add */
+					if (array_key_exists($attributeKey, $formattedValues)) {
+						$aliasFormattedValueNode = $aliasFormattedValuesNode->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:KeyValuePairOfstringstring'));
+						$aliasFormattedValueNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:key', $aliasedFieldName));
+						$aliasFormattedValueNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:value', $formattedValues[$attributeKey]));
+					}
+					/* Now set the DOM values on the Entity */
+					$storedValue->setAttributesFromDOM($conn, $aliasAttributesNode, $aliasFormattedValuesNode);
+					/* Finally, ensure that this is stored on the Entity using the Alias */
+					$attributeKey = $aliasName;
+					break;
 				default:
 					trigger_error('No parse handling implemented for type '.$attributeValueType.' used by field '.$attributeKey,
 							E_USER_WARNING);
@@ -719,6 +789,13 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			}
 			/* Bypass __set, and set the Value directly in the Properties array */
 			$this->properties[$attributeKey]['Value'] = $storedValue;
+			/* If we have just set the Primary ID of the Entity, update the ID field if necessary */
+			if ($this->properties[$attributeKey]['isPrimaryId'] && $this->entityID == NULL) {
+				/* Only if the new value is valid */
+				if ($storedValue != NULL && $storedValue != self::EmptyGUID) {
+					$this->entityID = $storedValue;
+				}
+			}
 		}
 	}
 	
@@ -747,7 +824,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				echo PHP_EOL;
 			}
 			/* Handle the Lookup types */
-			if ($propertyDetails['isLookup']) {
+			if ($propertyDetails['isLookup'] || $propertyDetails['Type'] == 'AliasedValue') {
 				/* EntityReference - Either just summarise the Entity, or Recurse */
 				if ($recursive) {
 					$propertyDetails['Value']->printDetails($recursive, $tabLevel+1);
@@ -762,6 +839,13 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					/* Date/Time - Print this as a formatted Date/Time */
 					echo $linePrefix."\t".date('Y-m-d H:i:s P', $propertyDetails['Value']).PHP_EOL;
 					break;
+				case 'Boolean':
+					/* Boolean - Print as TRUE or FALSE */
+					if ($propertyDetails['Value']) {
+						echo $linePrefix."\t".'('.$propertyDetails['Type'].') TRUE'.PHP_EOL;
+					} else {
+						echo $linePrefix."\t".'('.$propertyDetails['Type'].') FALSE'.PHP_EOL;
+					}
 				case 'Picklist':
 				case 'State':
 				case 'Status':
@@ -769,6 +853,8 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				case 'Uniqueidentifier':
 				case 'Memo':
 				case 'String':
+				case 'Virtual':
+				case 'EntityName':
 					/* Just cast it to a String to display */
 					echo $linePrefix."\t".'('.$propertyDetails['Type'].') '. $propertyDetails['Value'].PHP_EOL;
 					break;

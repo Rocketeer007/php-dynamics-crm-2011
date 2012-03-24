@@ -1433,9 +1433,11 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	
 	/**
 	 * Parse the results of a RetrieveMultipleRequest into a useable PHP object
+	 * @param DynamicsCRM2011_Connector $conn
+	 * @param String $soapResponse
 	 * @ignore
 	 */
-	protected static function parseRetrieveMultipleResponse($soapResponse) {
+	protected static function parseRetrieveMultipleResponse(DynamicsCRM2011_Connector $conn, $soapResponse) {
 		/* Load the XML into a DOMDocument */
 		$soapResponseDOM = new DOMDocument();
 		$soapResponseDOM->loadXML($soapResponse);
@@ -1469,18 +1471,22 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$responseDataArray['Entities'] = Array();
 		/* Loop through the Entities returned */
 		foreach ($retrieveMultipleResultNode->getElementsByTagName('Entities')->item(0)->getElementsByTagName('Entity') as $entityNode) {
-			/* Create an Array to hold the Entity properties */
-			$entityArray = Array();
-			/* Identify the Attributes */
-			$keyValueNodes = $entityNode->getElementsByTagName('Attributes')->item(0)->getElementsByTagName('KeyValuePairOfstringanyType');
-			/* Add the Attributes in the Key/Value Pairs of String/AnyType to the Array */
-			self::addAttributes($entityArray, $keyValueNodes);
-			/* Identify the FormattedValues */
-			$keyValueNodes = $entityNode->getElementsByTagName('FormattedValues')->item(0)->getElementsByTagName('KeyValuePairOfstringstring');
-			/* Add the Formatted Values in the Key/Value Pairs of String/String to the Array */
-			self::addFormattedValues($entityArray, $keyValueNodes);
-			/* Add the Entity to the Entities Array as a stdClass Object */
-			$responseDataArray['Entities'][] = (Object)$entityArray;
+			/* Generate a new Entity from the DOMNode */
+			$entity = DynamicsCRM2011_Entity::fromDOM($conn, $responseDataArray['EntityName'], $entityNode);
+			/* Add the Entity to the Entities Array as a DynamicsCRM2011_Entity Object */
+			$responseDataArray['Entities'][] = $entity;
+// 			/* Create an Array to hold the Entity properties */
+// 			$entityArray = Array();
+// 			/* Identify the Attributes */
+// 			$keyValueNodes = $entityNode->getElementsByTagName('Attributes')->item(0)->getElementsByTagName('KeyValuePairOfstringanyType');
+// 			/* Add the Attributes in the Key/Value Pairs of String/AnyType to the Array */
+// 			self::addAttributes($entityArray, $keyValueNodes);
+// 			/* Identify the FormattedValues */
+// 			$keyValueNodes = $entityNode->getElementsByTagName('FormattedValues')->item(0)->getElementsByTagName('KeyValuePairOfstringstring');
+// 			/* Add the Formatted Values in the Key/Value Pairs of String/String to the Array */
+// 			self::addFormattedValues($entityArray, $keyValueNodes);
+// 			/* Add the Entity to the Entities Array as a stdClass Object */
+// 			$responseDataArray['oldEntities'][] = (Object)$entityArray;
 		}
 		
 		/* Convert the Array to a stdClass Object */
@@ -1736,7 +1742,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			/* Get the raw XML data */
 			$rawSoapResponse = $this->retrieveMultipleRaw($queryXML, $pagingCookie, $limitCount);
 			/* Parse the raw XML data into an Object */
-			$tmpSoapData = self::parseRetrieveMultipleResponse($rawSoapResponse);
+			$tmpSoapData = self::parseRetrieveMultipleResponse($this, $rawSoapResponse);
 			/* If we already had some data, add the old Entities */
 			if ($soapData != NULL) {
 				$tmpSoapData->Entities = array_merge($soapData->Entities, $tmpSoapData->Entities);
@@ -1981,13 +1987,15 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param Array $propertiesArray
 	 * @param Array $mandatoriesArray
 	 * @param Array $optionSetsArray
+	 * @param String $entityDisplayName
 	 */
 	public function setCachedEntityDefinition($entityLogicalName, 
 			SimpleXMLElement $entityData, Array $propertiesArray, Array $mandatoriesArray,
-			Array $optionSetsArray) {
+			Array $optionSetsArray, $entityDisplayName) {
 		/* Store the details of the Entity Definition in the Cache */
 		$this->cachedEntityDefintions[$entityLogicalName] = Array(
-				$entityData, $propertiesArray, $mandatoriesArray, $optionSetsArray);
+				$entityData, $propertiesArray, $mandatoriesArray, 
+				$optionSetsArray, $entityDisplayName);
 	}
 	
 	/**
@@ -1998,11 +2006,12 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param Array $propertiesArray
 	 * @param Array $mandatoriesArray
 	 * @param Array $optionSetsArray
+	 * @param String $entityDisplayName
 	 * @return boolean true if the Cache was retrieved
 	 */
 	public function getCachedEntityDefinition($entityLogicalName, 
 			&$entityData, Array &$propertiesArray, Array &$mandatoriesArray,
-			Array &$optionSetsArray) {
+			Array &$optionSetsArray, &$entityDisplayName) {
 		/* Check that this Entity Definition has been Cached */
 		if ($this->isEntityDefinitionCached($entityLogicalName)) {
 			/* Populate the containers and return true */
@@ -2010,6 +2019,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			$propertiesArray = $this->cachedEntityDefintions[$entityLogicalName][1];
 			$mandatoriesArray = $this->cachedEntityDefintions[$entityLogicalName][2];
 			$optionSetsArray = $this->cachedEntityDefintions[$entityLogicalName][3];
+			$entityDisplayName = $this->cachedEntityDefintions[$entityLogicalName][4];
 			return true;
 		} else {
 			/* Not found - clear passed containers and return false */
@@ -2017,6 +2027,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			$propertiesArray = NULL;
 			$mandatoriesArray = NULL;
 			$optionSetsArray = NULL;
+			$entityDisplayName = NULL;
 			return false;
 		}
 	}
