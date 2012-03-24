@@ -10,6 +10,7 @@ require_once 'DynamicsCRM2011.php';
 if (file_exists('DynamicsCRM2011.config.local.php')) include 'DynamicsCRM2011.config.local.php';
 else include 'DynamicsCRM2011.config.php';
 
+/* Choose which demos to execute by commenting out values here */
 define('SKIP_DEMO1', TRUE);
 define('SKIP_DEMO2', TRUE);
 define('SKIP_DEMO3', TRUE);
@@ -18,6 +19,7 @@ define('SKIP_DEMO5', TRUE);
 define('SKIP_DEMO6', TRUE);
 define('SKIP_DEMO7', TRUE);
 define('SKIP_DEMO8', TRUE);
+define('SKIP_DEMO9', TRUE);
 
 /****************************************************************************
 There are two ways to connect to the Microsoft Dynamics 2011 CRM server.
@@ -149,6 +151,7 @@ $caseQueryXML = <<<END
     <link-entity name="account" from="accountid" to="customerid" visible="false" link-type="outer" alias="case_account">
       <attribute name="name" />
       <attribute name="telephone1" />
+      <attribute name="createdon" />
     </link-entity>
   </entity>
 </fetch>
@@ -416,4 +419,5 @@ END;
 	print_r($deleted);
 	
 }
+
 ?>
