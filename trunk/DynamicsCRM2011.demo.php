@@ -13,8 +13,8 @@ else include 'DynamicsCRM2011.config.php';
 /* Choose which demos to execute by commenting out values here */
 define('SKIP_DEMO1', TRUE);
 define('SKIP_DEMO2', TRUE);
-define('SKIP_DEMO3', TRUE);
-define('SKIP_DEMO4', TRUE);
+//define('SKIP_DEMO3', TRUE);
+//define('SKIP_DEMO4', TRUE);
 define('SKIP_DEMO5', TRUE);
 define('SKIP_DEMO6', TRUE);
 define('SKIP_DEMO7', TRUE);
@@ -152,7 +152,7 @@ $caseQueryXML = <<<END
     <attribute name="incidentid" />
     <order attribute="ticketnumber" descending="false" />
     <filter type="and">
-      <condition attribute="statecode" operator="eq" value="0" />
+      <condition attribute="statecode" operator="neq" value="0" />
     </filter>
     <link-entity name="account" from="accountid" to="customerid" visible="false" link-type="outer" alias="case_account">
       <attribute name="name" />
@@ -203,11 +203,9 @@ if (!defined('SKIP_DEMO3')) {
 
 /****************************************************************************
 The retrieveMultiple method is designed to return the data in as useable way
-as possible, however, it has only been tested (so far) with relatively 
-simple Fetch XML queries.
-It is possible that the function will not be able to parse the returned data
-correctly, and in that case, it might be necessary to examine the data 
-returned by the CRM directly.
+as possible, however, it is possible that the function will not be able to 
+parse the returned data correctly, and in that case, it might be necessary 
+to examine the data returned by the CRM directly.
 The retrieveMultipleRaw method allows you to get the XML returned directly,
 without any attempts at parsing.
 This function does not allow an automatic fetch of all pages, only the 
@@ -227,12 +225,17 @@ if (!defined('SKIP_DEMO4')) {
 	echo $rawAccountData;
 	echo PHP_EOL.'End of Raw XML data...'.PHP_EOL;
 	
-	echo date('Y-m-d H:i:s')."\tFetching Raw Case data... ";
-	$rawCaseData = $crmConnector->retrieveMultipleRaw($caseQueryXML, NULL, 2);
+	/* One step back from raw XML is to get a simplified stdClass containing the data
+	 * This is slightly faster than getting the full Entity structure, but doesn't
+	 * have quite as advanced parsing capabilities
+	 */
+	
+	echo date('Y-m-d H:i:s')."\tFetching stdClass Case data... ";
+	$stdClassCaseData = $crmConnector->retrieveMultipleSimple($caseQueryXML, FALSE, NULL, 2);
 	echo 'Done'.PHP_EOL;
-	echo PHP_EOL.'Start of Raw XML data...'.PHP_EOL;
-	echo $rawCaseData;
-	echo PHP_EOL.'End of Raw XML data...'.PHP_EOL;
+	echo PHP_EOL.'Start of stdClass data...'.PHP_EOL;
+	print_r($stdClassCaseData);
+	echo PHP_EOL.'End of stdClass data...'.PHP_EOL;
 }
 
 /* Example 3: Getting RecordChangeHistory details */
