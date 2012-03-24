@@ -359,10 +359,19 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	}
 	
 	/**
-	 * @return String description of the Entity including Type and ID
+	 * @return String description of the Entity including Type, DisplayName and ID
 	 */
 	public function __toString() {
-		return $this->entityLogicalName.'<'.$this->getID().'>';
+		/* Does this Entity have a DisplayName part? */
+		if ($this->entityDisplayName != NULL) {
+			/* Use the magic __get to determine the DisplayName */
+			$displayName = ': '.$this->DisplayName.' ';
+		} else {
+			/* No DisplayName */
+			$displayName = '';
+		}
+		/* EntityType: Display Name <GUID> */
+		return $this->entityLogicalName.$displayName.'<'.$this->getID().'>';
 	}
 	
 	/**

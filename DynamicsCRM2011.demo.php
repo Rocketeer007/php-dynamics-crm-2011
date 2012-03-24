@@ -95,6 +95,7 @@ $accountQueryXML = <<<END
     <attribute name="primarycontactid" />
     <attribute name="telephone1" />
     <attribute name="accountid" />
+    <attribute name="ownerid" />
     <order attribute="name" descending="false" />
     <filter type="and">
       <condition attribute="statecode" operator="eq" value="0" />
@@ -123,7 +124,12 @@ if (!defined('SKIP_DEMO2')) {
 	$accountData = $crmConnector->retrieveMultiple($accountQueryXML);
 	echo 'Done'.PHP_EOL;
 	foreach ($accountData->Entities as $account) {
+		/* Fetch fields individually */
 		echo "\t".'Account <'.$account->name.'> has ID {'.$account->accountid.'}'.PHP_EOL;
+		/* Use specific toString of Contact */
+		echo "\t\t".'Primary Contact is: '.$account->PrimaryContactId.PHP_EOL;
+		/* Use automatic toString of SystemUser */
+		echo "\t\t".'Owner is: '.$account->OwnerId.PHP_EOL;
 	}
 }
 
