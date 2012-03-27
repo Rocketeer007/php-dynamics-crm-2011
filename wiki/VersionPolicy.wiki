@@ -1,4 +1,5 @@
 #summary Details of how the Versions of this project will be managed
+#labels Featured,Phase-Design
 
 = Introduction =
 
