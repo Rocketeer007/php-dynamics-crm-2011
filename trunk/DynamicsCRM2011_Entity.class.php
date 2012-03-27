@@ -820,7 +820,14 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		}
 	}
 	
-	public function printDetails($recursive = false, $tabLevel = 0) {
+	/**
+	 * Print a human-readable summary of the Entity with all details and fields
+	 * 
+	 * @param boolean $recursive if TRUE, prints full details for all sub-entities as well
+	 * @param int $tabLevel the started level of indentation used (tabs)
+	 * @param boolean $printEmpty if TRUE, prints the details of NULL fields
+	 */
+	public function printDetails($recursive = false, $tabLevel = 0, $printEmpty = true) {
 		/* Print the Entity Summary at current Tab level */
 		echo str_repeat("\t", $tabLevel).$this.' ('.$this->getURL(true).')'.PHP_EOL;
 		/* Increment the tabbing level */
@@ -835,6 +842,8 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			$propertyDetails = $this->properties[$property];
 			/* In Recursive Mode, don't display "AttributeOf" fields */
 			if ($recursive && $propertyDetails['AttributeOf'] != NULL) continue;
+			/* Don't print NULL fields if printEmpty is FALSE */
+			if (!$printEmpty && $propertyDetails['Value'] == NULL) continue;
 			/* Output the Property Name & Description */
 			echo $linePrefix.$property.' ['.$propertyDetails['Label'].']: ';
 			/* For NULL values, just output NULL and the Type on one line */
