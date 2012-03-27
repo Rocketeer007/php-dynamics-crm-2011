@@ -876,6 +876,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					} else {
 						echo $linePrefix."\t".'('.$propertyDetails['Type'].') FALSE'.PHP_EOL;
 					}
+					break;
 				case 'Picklist':
 				case 'State':
 				case 'Status':
