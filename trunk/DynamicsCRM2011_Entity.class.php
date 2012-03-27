@@ -730,10 +730,22 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					if (array_key_exists($aliasName, $this->properties)) {
 						/* Get the existing Entity */
 						$storedValue = $this->properties[$aliasName]['Value'];
-						/* Check it's the right type */
-						if ($storedValue->logicalName != $aliasEntityName) {
-							trigger_error('Alias '.$aliasName.' was created as a '.$storedValue->logicalName.' but is now referenced as a '.$aliasEntityName.' in field '.$attributeKey,
-									E_USER_WARNING);
+						/* Check if the existing Entity is NULL */
+						if ($storedValue == NULL) {
+							/* Create a new Entity of the appropriate type */
+							$storedValue = self::fromLogicalName($conn, $aliasEntityName);
+							/* Alias overlaps with normal field - check this is allowed */
+							if (!in_array($aliasEntityName, $this->properties[$aliasName]['lookupTypes'])) {
+								trigger_error('Alias '.$aliasName.' overlaps and existing field of type '.implode(' or ', $this->properties[$aliasName]['lookupTypes'])
+										.' but is being set to a '.$aliasEntityName,
+										E_USER_WARNING);
+							}
+						} else {
+							/* Check it's the right type */
+							if ($storedValue->logicalName != $aliasEntityName) {
+								trigger_error('Alias '.$aliasName.' was created as a '.$storedValue->logicalName.' but is now referenced as a '.$aliasEntityName.' in field '.$attributeKey,
+										E_USER_WARNING);
+							}
 						}
 					} else {
 						/* Create a new Entity of the appropriate type */
