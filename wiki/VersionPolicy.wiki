@@ -1,4 +1,4 @@
-#Details of how the Versions of this project will be managed
+#summary Details of how the Versions of this project will be managed
 
 = Introduction =
 
