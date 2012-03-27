@@ -232,7 +232,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			return FALSE;
 		}
 		if ($organizationServiceURI == NULL) {
-			throw new Exception('Could not find OrganizationService URI for the Organization <'.$organizationUniqueName.'>');
+			throw new Exception('Could not find OrganizationService URI for the Organization <'.$this->organizationUniqueName.'>');
 			return FALSE;
 		}
 		$this->organizationURI = $organizationServiceURI;
