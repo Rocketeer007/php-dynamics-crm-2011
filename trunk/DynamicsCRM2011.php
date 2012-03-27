@@ -1,4 +1,10 @@
 <?php
+/**
+ * Dynamics CRM 2011 Connector for PHP
+ * 
+ * @author Nicholas Price
+ * @version 1.0.0
+ */
 
 interface DynamicsCRM2011_Interface {
 	/** Default GUID for "not known" or new Entities */
