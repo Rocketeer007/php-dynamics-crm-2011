@@ -41,12 +41,8 @@ abstract class DynamicsCRM2011 implements DynamicsCRM2011_Interface {
 			return false;
 		}
 	
-		/* Work out the filename of the Class to be loaded.
-		 * NOTE: If this ever moves to a directory structure, we will need to
-		 * compensate for relative paths etc.
-		 */
-		
-		$classFilePath = $className.'.class.php';
+		/* Work out the filename of the Class to be loaded. */
+		$classFilePath = dirname(__FILE__) . DIRECTORY_SEPARATOR . $className . '.class.php';
 	
 		/* Only try to load files that actually exist and can be read */
 		if ((file_exists($classFilePath) === false) || (is_readable($classFilePath) === false)) {
