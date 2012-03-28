@@ -13,8 +13,8 @@ else include 'DynamicsCRM2011.config.php';
 /* Choose which demos to execute by commenting out values here */
 define('SKIP_DEMO1', TRUE);
 define('SKIP_DEMO2', TRUE);
-//define('SKIP_DEMO3', TRUE);
-//define('SKIP_DEMO4', TRUE);
+define('SKIP_DEMO3', TRUE);
+define('SKIP_DEMO4', TRUE);
 define('SKIP_DEMO5', TRUE);
 define('SKIP_DEMO6', TRUE);
 define('SKIP_DEMO7', TRUE);
@@ -38,9 +38,8 @@ then parsed to determine the correct way to login, and the addresses to use
 *****************************************************************************/
 /* Connect to the Dynamics CRM 2011 server */
 echo date('Y-m-d H:i:s')."\tConnecting to the CRM... ";
-DynamicsCRM2011::setDebug(true);
 $crmConnector = new DynamicsCRM2011_Connector($discoveryServiceURI, $organizationUniqueName, $loginUsername, $loginPassword);
-echo 'Done'.PHP_EOL;
+echo 'Done<br/>'.PHP_EOL;
 
 /****************************************************************************
 The second option is more focussed on interactive systems, i.e. web-based 
