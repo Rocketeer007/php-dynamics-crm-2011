@@ -3,7 +3,7 @@
  * Dynamics CRM 2011 Connector for PHP
  * 
  * @author Nicholas Price
- * @version 1.0.0
+ * @version 1.0.1
  */
 
 interface DynamicsCRM2011_Interface {
