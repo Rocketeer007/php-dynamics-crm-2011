@@ -427,7 +427,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Fetch the WSDL for the Authentication Service as a parseable DOM Document */
 		if (self::$debugMode) echo 'Getting WSDL data from: '.$this->security[$service.'_authuri'].PHP_EOL;
 		$authenticationDOM = new DOMDocument();
-		$authenticationDOM->load($this->security[$service.'_authuri']);
+		@$authenticationDOM->load($this->security[$service.'_authuri']);
 		/* Flatten the WSDL and include all the Imports */
 		$this->mergeWSDLImports($authenticationDOM);
 		
@@ -526,7 +526,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Fetch the WSDL for the Discovery Service as a parseable DOM Document */
 		if (self::$debugMode) echo 'Getting WSDL data from: '.$this->discoveryURI.'?wsdl'.PHP_EOL;
 		$discoveryDOM = new DOMDocument();
-		$discoveryDOM->load($this->discoveryURI.'?wsdl');
+		@$discoveryDOM->load($this->discoveryURI.'?wsdl');
 		/* Flatten the WSDL and include all the Imports */
 		$this->mergeWSDLImports($discoveryDOM);
 		
@@ -549,7 +549,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		
 		/* Fetch the WSDL for the Organization Service as a parseable DOM Document */
 		if (self::$debugMode) echo 'Getting WSDL data from: '.$this->organizationURI.'?wsdl'.PHP_EOL;
-		$organizationDOM = new DOMDocument(); $organizationDOM->load($this->organizationURI.'?wsdl');
+		$organizationDOM = new DOMDocument(); 
+		@$organizationDOM->load($this->organizationURI.'?wsdl');
 		/* Flatten the WSDL and include all the Imports */
 		$this->mergeWSDLImports($organizationDOM);
 		
@@ -630,7 +631,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				if ($importURI != NULL) {
 					if (self::$debugMode) echo "\tImporting data from: ".$importURI.PHP_EOL;
 					$importDOM = new DOMDocument();
-					$importDOM->load($importURI);
+					@$importDOM->load($importURI);
 					/* Find the "Definitions" on this imported node */
 					$importDefinitions = $importDOM->getElementsByTagName('definitions')->item(0);
 					/* If we have "Definitions", import them one by one - Otherwise, just import at this level */
