@@ -75,7 +75,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			/* Check if this field is mandatory */
 			$requiredLevel = (String)$attribute->RequiredLevel->children('http://schemas.microsoft.com/xrm/2011/Contracts')->Value;
 			/* If this is an OptionSet, determine the OptionSet details */
-			if (!empty($attribute->OptionSet)) {
+			if (!empty($attribute->OptionSet) && !empty($attribute->OptionSet->Name)) {
 				/* Determine the Name of the OptionSet */
 				$optionSetName = (String)$attribute->OptionSet->Name;
 				$optionSetGlobal = ($attribute->OptionSet->IsGlobal == 'true');
@@ -123,7 +123,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 						break;
 					default:
 						/* If we're using Default, Warn user that the OptionSet handling is not defined */
-						trigger_error('No OptionSet handling implemented for Type '.$optionSetType.' used by field '.(String)$attribute->SchemaName,
+						trigger_error('No OptionSet handling implemented for Type '.$optionSetType.' used by field '.(String)$attribute->SchemaName.' in Entity '.$this->entityLogicalName,
 								E_USER_WARNING);
 				}
 				
@@ -138,7 +138,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				if (array_key_exists($optionSetName, $this->optionSets)) {
 					/* If this isn't a Global OptionSet, warn of the name clash */
 					if (!$optionSetGlobal) {
-						trigger_error('OptionSet '.$optionSetName.' used by field '.(String)$attribute->SchemaName.' has a name clash with another OptionSet!',
+						trigger_error('OptionSet '.$optionSetName.' used by field '.(String)$attribute->SchemaName.' has a name clash with another OptionSet in Entity '.$this->entityLogicalName,
 								E_USER_WARNING);
 					}
 				} else {
