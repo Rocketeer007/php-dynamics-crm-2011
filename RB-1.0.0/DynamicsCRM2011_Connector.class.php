@@ -1494,6 +1494,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				$responseDataArray['Entities'][] = $entity;
 			}
 		}
+		/* Record the number of Entities */
+		$responseDataArray['Count'] = count($responseDataArray['Entities']);
 		
 		/* Convert the Array to a stdClass Object */
 		$responseData = (Object)$responseDataArray;
@@ -1754,6 +1756,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			/* If we already had some data, add the old Entities */
 			if ($soapData != NULL) {
 				$tmpSoapData->Entities = array_merge($soapData->Entities, $tmpSoapData->Entities);
+				$tmpSoapData->Count += $soapData->Count;
 			}
 			/* Save the new Soap Data */
 			$soapData = $tmpSoapData;
