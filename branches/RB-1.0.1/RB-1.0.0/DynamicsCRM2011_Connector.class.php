@@ -2014,17 +2014,18 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param String $entityLogicalName
 	 * @param SimpleXMLElement $entityData
 	 * @param Array $propertiesArray
+	 * @param Array $propertyValuesArray
 	 * @param Array $mandatoriesArray
 	 * @param Array $optionSetsArray
 	 * @param String $entityDisplayName
 	 */
 	public function setCachedEntityDefinition($entityLogicalName, 
-			SimpleXMLElement $entityData, Array $propertiesArray, Array $mandatoriesArray,
-			Array $optionSetsArray, $entityDisplayName) {
+			SimpleXMLElement $entityData, Array $propertiesArray, Array $propertyValuesArray,
+			Array $mandatoriesArray, Array $optionSetsArray, $entityDisplayName) {
 		/* Store the details of the Entity Definition in the Cache */
 		$this->cachedEntityDefintions[$entityLogicalName] = Array(
-				$entityData, $propertiesArray, $mandatoriesArray, 
-				$optionSetsArray, $entityDisplayName);
+				$entityData, $propertiesArray, $propertyValuesArray, 
+				$mandatoriesArray, $optionSetsArray, $entityDisplayName);
 	}
 	
 	/**
@@ -2033,27 +2034,35 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param String $entityLogicalName
 	 * @param SimpleXMLElement $entityData
 	 * @param Array $propertiesArray
+	 * @param Array $propertyValuesArray
 	 * @param Array $mandatoriesArray
 	 * @param Array $optionSetsArray
 	 * @param String $entityDisplayName
 	 * @return boolean true if the Cache was retrieved
 	 */
 	public function getCachedEntityDefinition($entityLogicalName, 
-			&$entityData, Array &$propertiesArray, Array &$mandatoriesArray,
+			&$entityData, Array &$propertiesArray, Array &$propertyValuesArray, Array &$mandatoriesArray,
 			Array &$optionSetsArray, &$entityDisplayName) {
 		/* Check that this Entity Definition has been Cached */
 		if ($this->isEntityDefinitionCached($entityLogicalName)) {
-			/* Populate the containers and return true */
+			/* Populate the containers and return true
+			 * Note that we rely on PHP's "Copy on Write" functionality to prevent massive memory use:
+			 * the only array that is ever updated inside an Entity is the propertyValues array (and the
+			 * localProperties array) - the other data therefore becomes a single reference during
+			 * execution.
+			 */
 			$entityData = $this->cachedEntityDefintions[$entityLogicalName][0];
 			$propertiesArray = $this->cachedEntityDefintions[$entityLogicalName][1];
-			$mandatoriesArray = $this->cachedEntityDefintions[$entityLogicalName][2];
-			$optionSetsArray = $this->cachedEntityDefintions[$entityLogicalName][3];
-			$entityDisplayName = $this->cachedEntityDefintions[$entityLogicalName][4];
+			$propertyValuesArray = $this->cachedEntityDefintions[$entityLogicalName][2];
+			$mandatoriesArray = $this->cachedEntityDefintions[$entityLogicalName][3];
+			$optionSetsArray = $this->cachedEntityDefintions[$entityLogicalName][4];
+			$entityDisplayName = $this->cachedEntityDefintions[$entityLogicalName][5];
 			return true;
 		} else {
 			/* Not found - clear passed containers and return false */
 			$entityData = NULL;
 			$propertiesArray = NULL;
+			$propertyValuesArray = NULL;
 			$mandatoriesArray = NULL;
 			$optionSetsArray = NULL;
 			$entityDisplayName = NULL;
