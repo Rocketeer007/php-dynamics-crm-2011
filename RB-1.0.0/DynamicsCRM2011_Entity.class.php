@@ -344,6 +344,40 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	}
 	
 	/**
+	 * Check if a property exists on this entity.  Called by isset().
+	 * Note that this implementation does not check if the property is actually a non-null value.
+	 *
+	 * @param String $property to be checked
+	 * @return boolean true, if it exists & is readable
+	 */
+	public function __isset($property) {
+		/* Handle special fields */
+		switch (strtoupper($property)) {
+			case 'ID':
+				return ($this->entityID == NULL);
+				break;
+			case 'LOGICALNAME':
+				return true;
+				break;
+			case 'DISPLAYNAME':
+				if ($this->entityDisplayName != NULL) {
+					$property = $this->entityDisplayName;
+				} else {
+					return false;
+				}
+				break;
+		}
+		/* Handle dynamic properties... */
+		$property = strtolower($property);
+		/* Value "Is Set" if it exists as a property, and is readable */
+		/* Note: NULL values count as "Set" -> use "Empty" on the return of "Get" to check for NULLs */
+		if (array_key_exists($property, $this->properties) && $this->properties[$property]['Read'] === true) {
+			return true;
+		}
+		return false;
+	}
+	
+	/**
 	 * Utility function to clear all "AttributeOf" fields relating to the base field
 	 * @param String $baseProperty
 	 */
