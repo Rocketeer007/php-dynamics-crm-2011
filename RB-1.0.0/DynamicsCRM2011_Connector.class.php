@@ -1189,10 +1189,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		if ($pagingCookie != NULL) {
 			/* Turn the queryXML into a DOMDocument so we can manipulate it */
 			$queryDOM = new DOMDocument(); $queryDOM->loadXML($queryXML);
-			/* Turn the pagingCookie into a DOMDocument so we can read it */
-			$pagingDOM = new DOMDocument(); $pagingDOM->loadXML($pagingCookie);
-			$lastPage = $pagingDOM->documentElement->getAttribute('page');
-			$newPage = $lastPage + 1;
+			$newPage = self::getPageNo($pagingCookie) + 1;
 			//echo 'Doing paging - Asking for page: '.$newPage.PHP_EOL;
 			/* Modify the query that we send: Add the Page number */
 			$queryDOM->documentElement->setAttribute('page', $newPage);
@@ -1229,6 +1226,20 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$queryNode->appendChild($retrieveMultipleRequestDOM->createElement('b:Query', htmlentities($queryXML)));
 		/* Return the DOMNode */
 		return $retrieveMultipleNode;
+	}
+	
+	/**
+	 * Find the PageNumber in a PagingCookie
+	 * 
+	 * @param String $pagingCookie
+	 * @ignore
+	 */
+	private static function getPageNo($pagingCookie) {
+		/* Turn the pagingCookie into a DOMDocument so we can read it */
+		$pagingDOM = new DOMDocument(); $pagingDOM->loadXML($pagingCookie);
+		/* Find the page number */
+		$pageNo = $pagingDOM->documentElement->getAttribute('page');
+		return (int)$pageNo;
 	}
 	
 	/** 
@@ -1747,7 +1758,6 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$soapData = NULL;
 		/* If we need all pages, ignore any supplied paging cookie */
 		if ($allPages) $pagingCookie = NULL;
-		$page = 0;
 		do {
 			/* Get the raw XML data */
 			$rawSoapResponse = $this->retrieveMultipleRaw($queryXML, $pagingCookie, $limitCount);
@@ -1760,11 +1770,30 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			}
 			/* Save the new Soap Data */
 			$soapData = $tmpSoapData;
-			/* Grab the Paging Cookie */
-			$pagingCookie = $soapData->PagingCookie;
+			
+			/* Check if the PagingCookie is present & needed */
+			if ($soapData->MoreRecords && $soapData->PagingCookie == NULL) {
+				/* Paging Cookie is not present in returned data, but is expected! */
+				/* Check if a Paging Cookie was supplied */
+				if ($pagingCookie == NULL) {
+					/* This was the first page */
+					$pageNo = 1;
+				} else {
+					/* This is the page from the last PagingCookie, plus 1 */
+					$pageNo = self::getPageNo($pagingCookie) + 1;
+				}
+				/* Create a new paging cookie for this page */
+				$pagingCookie = '<cookie page="'.$pageNo.'"></cookie>';
+				$soapData->PagingCookie = $pagingCookie;
+			} else {
+				/* PagingCookie exists, or is not needed */
+				$pagingCookie = $soapData->PagingCookie;
+			}
+			
+			/* Loop while there are more records, and we want all pages */
 		} while ($soapData->MoreRecords && $allPages);
 		
-		
+		/* Return the compiled structure */
 		return $soapData;
 	}
 	

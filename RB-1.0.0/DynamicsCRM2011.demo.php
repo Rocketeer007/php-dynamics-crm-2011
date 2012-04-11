@@ -20,7 +20,7 @@ define('SKIP_DEMO6', TRUE);
 define('SKIP_DEMO7', TRUE);
 define('SKIP_DEMO8', TRUE);
 define('SKIP_DEMO9', TRUE);
-define('SKIP_DEMO10', TRUE);
+//define('SKIP_DEMO10', TRUE);
 
 /****************************************************************************
 There are two ways to connect to the Microsoft Dynamics 2011 CRM server.
@@ -431,13 +431,9 @@ END;
 if (!defined('SKIP_DEMO10')) {
 	/* This query fetches all the Accounts, and any Incidents linked to those accounts (if they exist).
 	 * If there is no Incident linked to the Account, the Account details are still returned
-	 * 
-	 * Note that when an Outer Join is performed to retrieve a One-To-Many relationship, the Paging Cookie
-	 * does not get returned correctly, and must be manually created.  This means it is impossible
-	 * to use the automatic "fetch all" functions in the PHP Connector.
 	 */
 	$accountCaseQuery = <<<END
-<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="true" count="250">
+<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="true" count="50">
   <entity name="account">
     <attribute name="name" />
     <attribute name="primarycontactid" />
@@ -448,6 +444,7 @@ if (!defined('SKIP_DEMO10')) {
     <filter type="and">
       <condition attribute="statecode" operator="eq" value="0" />
       <condition attribute="customertypecodename" operator="eq" value="Customer" />
+      <condition attribute="name" operator="eq" value="Midlands Co-operative Society" />
     </filter>
     <link-entity name="incident" from="customerid" to="accountid" alias="incidents" link-type="outer">
       <attribute name="incidentid" />
@@ -482,14 +479,8 @@ END;
 			}
 		}
 	
-		/* Check if the PagingCookie is "good" */
-		if ($accountCaseData->MoreRecords && $accountCaseData->PagingCookie == NULL) {
-			/* Missing Paging Cookie - Fake it! */
-			echo date('Y-m-d H:i:s')."\tERROR: More Records present, but no PagingCookie supplied!".PHP_EOL;
-			$pagingCookie = '<cookie page="'.$pageNo.'"></cookie>';
-		} else {
-			$pagingCookie = $accountCaseData->PagingCookie;
-		}
+		/* Get the PagingCookie */
+		$pagingCookie = $accountCaseData->PagingCookie;
 	} while ($accountCaseData->MoreRecords);
 	
 }
