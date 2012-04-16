@@ -20,6 +20,7 @@ define('SKIP_DEMO6', TRUE);
 define('SKIP_DEMO7', TRUE);
 define('SKIP_DEMO8', TRUE);
 define('SKIP_DEMO9', TRUE);
+//define('SKIP_DEMO10', TRUE);
 
 /****************************************************************************
 There are two ways to connect to the Microsoft Dynamics 2011 CRM server.
@@ -318,7 +319,7 @@ END;
 	
 	echo PHP_EOL.$case.PHP_EOL;
 	echo "\tTitle:       \t".$caseData->Title.PHP_EOL;
-	echo "\tState:       \t".$caseData->StateCode->FormattedValue.PHP_EOL;
+	echo "\tState:       \t".$caseData->StateCode->Label.PHP_EOL;
 	echo "\tCreated On:  \t".date('Y-m-d H:i:s', $caseData->CreatedOn).PHP_EOL;
 	echo "\tContact Name:\t".$caseData->ResponsibleContactIdName.PHP_EOL;
 	echo "\tContact:     \t".$caseData->ResponsibleContactId.PHP_EOL;
@@ -379,7 +380,6 @@ END;
 	$case->CustomerID = $account;
 	$case->ResponsibleContactId = $contact;
 	$case->Description = 'This is the case Description, it\'s supposedly a "Memo" field, but actually just treated as a string!';
-	$case->OverriddenCreatedOn = mktime(13, 00, 00, 03, 19, 2012);
 	/* Before Creating the Case, check if any Mandatory fields are missing */
  	$missingFields = Array();
  	if (!$case->checkMandatories($missingFields)) {
@@ -413,7 +413,6 @@ END;
 	echo "\tStatus:       \t".$case->StatusCode->Label.PHP_EOL;
 	echo "\tPriority:       \t".$case->PriorityCode->Label.PHP_EOL;
 	echo "\tCreated On:  \t".date('Y-m-d H:i:s P', $case->CreatedOn).PHP_EOL;
-	echo "\t\tOverridden:\t".date('Y-m-d H:i:s P', $case->OverriddenCreatedOn).PHP_EOL;
 	echo "\tContact Name:\t".$case->ResponsibleContactIdName.PHP_EOL;
 	echo "\tContact:     \t".$case->ResponsibleContactId.PHP_EOL;
 	echo PHP_EOL;
@@ -425,6 +424,64 @@ END;
 	$deleted = $crmConnector->delete($case);
 	echo 'Done'.PHP_EOL;
 	print_r($deleted);
+	
+}
+
+/* Example 10: Outer Join in FetchXML */
+if (!defined('SKIP_DEMO10')) {
+	/* This query fetches all the Accounts, and any Incidents linked to those accounts (if they exist).
+	 * If there is no Incident linked to the Account, the Account details are still returned
+	 */
+	$accountCaseQuery = <<<END
+<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="true" count="50">
+  <entity name="account">
+    <attribute name="name" />
+    <attribute name="primarycontactid" />
+    <attribute name="telephone1" />
+    <attribute name="accountid" />
+    <attribute name="ownerid" />
+    <order attribute="name" descending="false" />
+    <filter type="and">
+      <condition attribute="statecode" operator="eq" value="0" />
+      <condition attribute="customertypecodename" operator="eq" value="Customer" />
+      <condition attribute="name" operator="eq" value="Midlands Co-operative Society" />
+    </filter>
+    <link-entity name="incident" from="customerid" to="accountid" alias="incidents" link-type="outer">
+      <attribute name="incidentid" />
+      <attribute name="ticketnumber" />
+      <order attribute="createdon" descending="false" />
+      <filter type="and">
+        <condition attribute="ticketnumber" operator="not-null" />
+      </filter>
+    </link-entity>
+  </entity>
+</fetch>
+END;
+	
+	/* Start at the first page, with no Paging Cookie */
+	$pagingCookie = NULL;
+	$pageNo = 0;
+	do {
+		/* Increment the page number */
+		$pageNo++;
+		/* Fetch a page of data */
+		echo date('Y-m-d H:i:s')."\tFetching Page ".$pageNo." of Account & Case data... ";
+		$accountCaseData = $crmConnector->retrieveMultiple($accountCaseQuery, FALSE, $pagingCookie);
+		echo 'Done ('.$accountCaseData->Count.' records)'.PHP_EOL;
+		
+		/* Loop through the Accounts & Cases returned */
+		foreach ($accountCaseData->Entities as $accountItem) {
+			/* Check if this Account has an Incident */
+			if (isset($accountItem->Incidents)) {
+				echo "\t\tAccount ".$accountItem->DisplayName." has Incident: ".$accountItem->Incidents->TicketNumber.PHP_EOL;
+			} else {
+				echo "\t\tAccount ".$accountItem->DisplayName." has no Incidents".PHP_EOL;
+			}
+		}
+	
+		/* Get the PagingCookie */
+		$pagingCookie = $accountCaseData->PagingCookie;
+	} while ($accountCaseData->MoreRecords);
 	
 }
 
