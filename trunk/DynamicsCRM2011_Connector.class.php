@@ -1189,10 +1189,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		if ($pagingCookie != NULL) {
 			/* Turn the queryXML into a DOMDocument so we can manipulate it */
 			$queryDOM = new DOMDocument(); $queryDOM->loadXML($queryXML);
-			/* Turn the pagingCookie into a DOMDocument so we can read it */
-			$pagingDOM = new DOMDocument(); $pagingDOM->loadXML($pagingCookie);
-			$lastPage = $pagingDOM->documentElement->getAttribute('page');
-			$newPage = $lastPage + 1;
+			$newPage = self::getPageNo($pagingCookie) + 1;
 			//echo 'Doing paging - Asking for page: '.$newPage.PHP_EOL;
 			/* Modify the query that we send: Add the Page number */
 			$queryDOM->documentElement->setAttribute('page', $newPage);
@@ -1229,6 +1226,20 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$queryNode->appendChild($retrieveMultipleRequestDOM->createElement('b:Query', htmlentities($queryXML)));
 		/* Return the DOMNode */
 		return $retrieveMultipleNode;
+	}
+	
+	/**
+	 * Find the PageNumber in a PagingCookie
+	 * 
+	 * @param String $pagingCookie
+	 * @ignore
+	 */
+	private static function getPageNo($pagingCookie) {
+		/* Turn the pagingCookie into a DOMDocument so we can read it */
+		$pagingDOM = new DOMDocument(); $pagingDOM->loadXML($pagingCookie);
+		/* Find the page number */
+		$pageNo = $pagingDOM->documentElement->getAttribute('page');
+		return (int)$pageNo;
 	}
 	
 	/** 
@@ -1494,6 +1505,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				$responseDataArray['Entities'][] = $entity;
 			}
 		}
+		/* Record the number of Entities */
+		$responseDataArray['Count'] = count($responseDataArray['Entities']);
 		
 		/* Convert the Array to a stdClass Object */
 		$responseData = (Object)$responseDataArray;
@@ -1745,7 +1758,6 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$soapData = NULL;
 		/* If we need all pages, ignore any supplied paging cookie */
 		if ($allPages) $pagingCookie = NULL;
-		$page = 0;
 		do {
 			/* Get the raw XML data */
 			$rawSoapResponse = $this->retrieveMultipleRaw($queryXML, $pagingCookie, $limitCount);
@@ -1754,14 +1766,34 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			/* If we already had some data, add the old Entities */
 			if ($soapData != NULL) {
 				$tmpSoapData->Entities = array_merge($soapData->Entities, $tmpSoapData->Entities);
+				$tmpSoapData->Count += $soapData->Count;
 			}
 			/* Save the new Soap Data */
 			$soapData = $tmpSoapData;
-			/* Grab the Paging Cookie */
-			$pagingCookie = $soapData->PagingCookie;
+			
+			/* Check if the PagingCookie is present & needed */
+			if ($soapData->MoreRecords && $soapData->PagingCookie == NULL) {
+				/* Paging Cookie is not present in returned data, but is expected! */
+				/* Check if a Paging Cookie was supplied */
+				if ($pagingCookie == NULL) {
+					/* This was the first page */
+					$pageNo = 1;
+				} else {
+					/* This is the page from the last PagingCookie, plus 1 */
+					$pageNo = self::getPageNo($pagingCookie) + 1;
+				}
+				/* Create a new paging cookie for this page */
+				$pagingCookie = '<cookie page="'.$pageNo.'"></cookie>';
+				$soapData->PagingCookie = $pagingCookie;
+			} else {
+				/* PagingCookie exists, or is not needed */
+				$pagingCookie = $soapData->PagingCookie;
+			}
+			
+			/* Loop while there are more records, and we want all pages */
 		} while ($soapData->MoreRecords && $allPages);
 		
-		
+		/* Return the compiled structure */
 		return $soapData;
 	}
 	
@@ -2011,17 +2043,18 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param String $entityLogicalName
 	 * @param SimpleXMLElement $entityData
 	 * @param Array $propertiesArray
+	 * @param Array $propertyValuesArray
 	 * @param Array $mandatoriesArray
 	 * @param Array $optionSetsArray
 	 * @param String $entityDisplayName
 	 */
 	public function setCachedEntityDefinition($entityLogicalName, 
-			SimpleXMLElement $entityData, Array $propertiesArray, Array $mandatoriesArray,
-			Array $optionSetsArray, $entityDisplayName) {
+			SimpleXMLElement $entityData, Array $propertiesArray, Array $propertyValuesArray,
+			Array $mandatoriesArray, Array $optionSetsArray, $entityDisplayName) {
 		/* Store the details of the Entity Definition in the Cache */
 		$this->cachedEntityDefintions[$entityLogicalName] = Array(
-				$entityData, $propertiesArray, $mandatoriesArray, 
-				$optionSetsArray, $entityDisplayName);
+				$entityData, $propertiesArray, $propertyValuesArray, 
+				$mandatoriesArray, $optionSetsArray, $entityDisplayName);
 	}
 	
 	/**
@@ -2030,27 +2063,35 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param String $entityLogicalName
 	 * @param SimpleXMLElement $entityData
 	 * @param Array $propertiesArray
+	 * @param Array $propertyValuesArray
 	 * @param Array $mandatoriesArray
 	 * @param Array $optionSetsArray
 	 * @param String $entityDisplayName
 	 * @return boolean true if the Cache was retrieved
 	 */
 	public function getCachedEntityDefinition($entityLogicalName, 
-			&$entityData, Array &$propertiesArray, Array &$mandatoriesArray,
+			&$entityData, Array &$propertiesArray, Array &$propertyValuesArray, Array &$mandatoriesArray,
 			Array &$optionSetsArray, &$entityDisplayName) {
 		/* Check that this Entity Definition has been Cached */
 		if ($this->isEntityDefinitionCached($entityLogicalName)) {
-			/* Populate the containers and return true */
+			/* Populate the containers and return true
+			 * Note that we rely on PHP's "Copy on Write" functionality to prevent massive memory use:
+			 * the only array that is ever updated inside an Entity is the propertyValues array (and the
+			 * localProperties array) - the other data therefore becomes a single reference during
+			 * execution.
+			 */
 			$entityData = $this->cachedEntityDefintions[$entityLogicalName][0];
 			$propertiesArray = $this->cachedEntityDefintions[$entityLogicalName][1];
-			$mandatoriesArray = $this->cachedEntityDefintions[$entityLogicalName][2];
-			$optionSetsArray = $this->cachedEntityDefintions[$entityLogicalName][3];
-			$entityDisplayName = $this->cachedEntityDefintions[$entityLogicalName][4];
+			$propertyValuesArray = $this->cachedEntityDefintions[$entityLogicalName][2];
+			$mandatoriesArray = $this->cachedEntityDefintions[$entityLogicalName][3];
+			$optionSetsArray = $this->cachedEntityDefintions[$entityLogicalName][4];
+			$entityDisplayName = $this->cachedEntityDefintions[$entityLogicalName][5];
 			return true;
 		} else {
 			/* Not found - clear passed containers and return false */
 			$entityData = NULL;
 			$propertiesArray = NULL;
+			$propertyValuesArray = NULL;
 			$mandatoriesArray = NULL;
 			$optionSetsArray = NULL;
 			$entityDisplayName = NULL;
