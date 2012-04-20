@@ -979,7 +979,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Generate the base URL for Entities */
 		$domainURL = $urlDetails['scheme'].'://'.$urlDetails['host'].'/';
 		/* If the Organization Unique Name is part of the Organization URL, add it to the Domain */
-		if (strstr($organizationURL, $conn->getOrganization()) !== FALSE) {
+		if (strstr($organizationURL, '/'.$conn->getOrganization().'/') !== FALSE) {
 			$domainURL = $domainURL . $conn->getOrganization() .'/';
 		}
 		/* Update the Entity */
