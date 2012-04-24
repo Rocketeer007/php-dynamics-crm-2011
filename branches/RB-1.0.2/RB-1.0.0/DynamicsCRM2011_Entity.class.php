@@ -955,6 +955,12 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		}
 	}
 	
+	/**
+	 * Get a URL that can be used to directly open the Entity Details on the CRM
+	 * 
+	 * @param boolean $absolute If true, include the full domain; otherwise, just return a relative URL.
+	 * @return NULL|string the URL for the Entity on the CRM
+	 */
 	public function getURL($absolute = false) {
 		/* Cannot return a URL for an Entity with no ID */
 		if ($this->entityID == NULL) return NULL;
@@ -984,6 +990,22 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		}
 		/* Update the Entity */
 		$this->entityDomain = $domainURL;
+	}
+	
+	/**
+	 * Get the possible values for a particular OptionSet property
+	 * 
+	 * @param String $property to list values for
+	 * @return Array list of the available options for this Property
+	 */
+	public function getOptionSetValues($property) {
+		/* Check that the specified property exists */
+		if (!array_key_exists($property, $this->properties)) return NULL;
+		/* Check that the specified property is indeed an OptionSet */
+		$optionSetName = $this->properties[$property]['OptionSet'];
+		if ($optionSetName == NULL) return NULL;
+		/* Return the available options for this property */
+		return $this->optionSets[$optionSetName];
 	}
 }
 
