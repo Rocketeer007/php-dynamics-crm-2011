@@ -21,6 +21,7 @@ define('SKIP_DEMO7', TRUE);
 define('SKIP_DEMO8', TRUE);
 define('SKIP_DEMO9', TRUE);
 define('SKIP_DEMO10', TRUE);
+//define('SKIP_DEMO11', TRUE);
 
 /****************************************************************************
 There are two ways to connect to the Microsoft Dynamics 2011 CRM server.
@@ -490,21 +491,22 @@ if (!defined('SKIP_DEMO11')) {
 	$queryXML = <<<END
 <fetch mapping="logical" distinct="false" aggregate="true">
   <entity name="incident">
+    <attribute name="statuscode" groupby="true" alias="statuscode" />
     <attribute name="createdon" groupby="true" dategrouping="year" alias="year" />
     <attribute name="createdon" groupby="true" dategrouping="month" alias="month" />
     <attribute name="createdon" alias="count" aggregate="count" />
     <order alias='year' descending='false' />
     <order alias='month' descending='false' />
-    <filter type="and">
-      <condition attribute="createdon" operator="on-or-after" value="2011-01-01" />
-    </filter>
   </entity>
 </fetch>
 END;
 	$data = $crmConnector->retrieveMultiple($queryXML);
 	echo "Got ".$data->Count." records...".PHP_EOL;
+	$statusCodes = $data->Entities[0]->getOptionSetValues('StatusCode');
 	foreach($data->Entities as $aggregate_record) {
-		echo "Year = ".$aggregate_record->Year." / Month = ".$aggregate_record->Month." / Solutions = ".$aggregate_record->Count.PHP_EOL;
+		echo "Year = ".$aggregate_record->Year." / Month = ".$aggregate_record->Month." / Status = ".$statusCodes[$aggregate_record->StatusCode]." / Cases = ".$aggregate_record->Count.PHP_EOL;
 	}
 }
+
+
 ?>

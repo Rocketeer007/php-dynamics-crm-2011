@@ -1031,6 +1031,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	 */
 	public function getOptionSetValues($property) {
 		/* Check that the specified property exists */
+		$property = strtolower($property);
 		if (!array_key_exists($property, $this->properties)) return NULL;
 		/* Check that the specified property is indeed an OptionSet */
 		$optionSetName = $this->properties[$property]['OptionSet'];
