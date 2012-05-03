@@ -78,6 +78,9 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	private $organizationSecurityToken;
 	/* Cached Entity Definitions */
 	private $cachedEntityDefintions = Array();
+	/* Connection Details */
+	protected $connectorTimeout = 600;
+	protected $maximumRecords = self::MAX_CRM_RECORDS;
 	
 	/**
 	 * Create a new instance of the DynamicsCRM2011Connector
@@ -186,6 +189,40 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 */
 	public function getOrganization() {
 		return $this->organizationUniqueName;
+	}
+	
+	/**
+	 * Get the maximum records for a query
+	 * @return int the maximum records that will be returned from RetrieveMultiple per page
+	 */
+	public function getMaximumRecords() {
+		return $this->maximumRecords;
+	}
+	
+	/**
+	 * Set the maximum records for a query
+	 * @param int $_maximumRecords the maximum number of records to fetch per page
+	 */
+	public function setMaximumRecords($_maximumRecords) {
+		if (!is_int($_maximumRecords)) return;
+		$this->maximumRecords = $_maximumRecords;
+	}
+	
+	/**
+	 * Get the connector timeout value
+	 * @return int the maximum time the connector will wait for a response from the CRM in seconds
+	 */
+	public function getConnectorTimeout() {
+		return $this->connectorTimeout;
+	}
+	
+	/**
+	 * Set the connector timeout value
+	 * @param int $_connectorTimeout maximum time the connector will wait for a response from the CRM in seconds
+	 */
+	public function setConnectorTimeout($_connectorTimeout) {
+		if (!is_int($_connectorTimeout)) return;
+		$this->connectorTimeout = $_connectorTimeout;
 	}
 	
 	/**
@@ -1052,7 +1089,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$cURLHandle = curl_init();
 		curl_setopt($cURLHandle, CURLOPT_URL, $soapUrl);
 		curl_setopt($cURLHandle, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($cURLHandle, CURLOPT_TIMEOUT, 60);
+		curl_setopt($cURLHandle, CURLOPT_TIMEOUT, $this->connectorTimeout);
 		curl_setopt($cURLHandle, CURLOPT_SSL_VERIFYPEER, false);
 		curl_setopt($cURLHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 		curl_setopt($cURLHandle, CURLOPT_HTTPHEADER, $headers);
@@ -1202,13 +1239,13 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Turn the queryXML into a DOMDocument so we can manipulate it */
 		$queryDOM = new DOMDocument(); $queryDOM->loadXML($queryXML);
 		/* Find the current limit, if there is one */
-		$currentLimit = self::MAX_CRM_RECORDS+1;
+		$currentLimit = $this->maximumRecords+1;
 		if ($queryDOM->documentElement->hasAttribute('count')) {
 			$currentLimit = $queryDOM->documentElement->getAttribute('count');
 		}
 		/* Determine the preferred limit (passed by argument, or 5000 if not set) */
-		$preferredLimit = ($limitCount == NULL) ? self::MAX_CRM_RECORDS : $limitCount;
-		if ($preferredLimit > self::MAX_CRM_RECORDS) $preferredLimit = self::MAX_CRM_RECORDS;
+		$preferredLimit = ($limitCount == NULL) ? $this->maximumRecords : $limitCount;
+		if ($preferredLimit > $this->maximumRecords) $preferredLimit = $this->maximumRecords;
 		/* If the current limit is not set, or is greater than the preferred limit, over-ride it */
 		if ($currentLimit > $preferredLimit) {
 			/* Modify the query that we send: Change the Count */
