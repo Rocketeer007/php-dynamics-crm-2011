@@ -21,7 +21,7 @@ define('SKIP_DEMO7', TRUE);
 define('SKIP_DEMO8', TRUE);
 define('SKIP_DEMO9', TRUE);
 define('SKIP_DEMO10', TRUE);
-//define('SKIP_DEMO11', TRUE);
+define('SKIP_DEMO11', TRUE);
 
 /****************************************************************************
 There are two ways to connect to the Microsoft Dynamics 2011 CRM server.
@@ -497,6 +497,31 @@ if (!defined('SKIP_DEMO11')) {
     <attribute name="createdon" alias="count" aggregate="count" />
     <order alias='year' descending='false' />
     <order alias='month' descending='false' />
+    <filter type="and">
+      <filter type="or">
+        <filter type="and">
+          <condition attribute="sfmig_truelastmodifieddate" operator="last-x-days" value="14" />
+          <condition attribute="statuscodename" operator="in">
+            <value>Solution Delivered</value>
+            <value>Closed</value>
+            <value>Canceled</value>
+          </condition>
+        </filter>
+        <condition attribute="statuscodename" operator="not-in">
+          <value>Solution Delivered</value>
+          <value>Closed</value>
+          <value>Canceled</value>
+        </condition>
+      </filter>
+    </filter>
+    <link-entity name="product" from="productid" to="productid" alias="productid">
+      <filter type="and">
+        <condition attribute="aldata_productfamilyname" operator="eq" value="Gold" />
+      </filter>
+    </link-entity>
+    <link-entity name="aldata_clearquestbug" from="aldata_case" to="incidentid" alias="clearquest_bugs" link-type="outer">
+      <attribute name="aldata_clearquestbugid" aggregate="count" alias="cq_card_count" />
+    </link-entity>
   </entity>
 </fetch>
 END;
@@ -504,8 +529,55 @@ END;
 	echo "Got ".$data->Count." records...".PHP_EOL;
 	$statusCodes = $data->Entities[0]->getOptionSetValues('StatusCode');
 	foreach($data->Entities as $aggregate_record) {
-		echo "Year = ".$aggregate_record->Year." / Month = ".$aggregate_record->Month." / Status = ".$statusCodes[$aggregate_record->StatusCode]." / Cases = ".$aggregate_record->Count.PHP_EOL;
+		echo "Year = ".$aggregate_record->Year
+				." / Month = ".$aggregate_record->Month
+				." / Status = ".$statusCodes[$aggregate_record->StatusCode]
+				." / Cases = ".$aggregate_record->Count
+				." / CQ Cards = ".$aggregate_record->CQ_Card_Count.PHP_EOL;
 	}
+}
+
+$queryXML = <<<END
+<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="true" aggregate="true">
+  <entity name="incident">
+    <attribute name="ticketnumber" aggregate="count" alias="count" />
+    <attribute name="statuscode" groupby="true" alias="statuscode" />
+    <order alias="statuscode" descending="false" />
+    <link-entity name="account" from="accountid" to="customerid" visible="false" link-type="outer" alias="customerid">
+      <attribute name="aldata_supportcountry" groupby="true" alias="aldata_supportcountry" />
+    </link-entity>
+    <link-entity name="product" from="productid" to="productid" alias="productid">
+      <attribute name="aldata_productfamily" groupby="true" alias="aldata_productfamily" />
+      <filter type="and">
+        <condition attribute="aldata_productfamily" operator="not-null" />
+        <condition attribute="name" operator="not-in">
+          <value>PMS-AS400</value>
+          <value>TPEAS400</value>
+        </condition>
+      </filter>
+    </link-entity>
+    <filter type="and">
+      <condition attribute="statuscodename" operator="not-in">
+        <value>Solution Delivered</value>
+        <value>Closed</value>
+        <value>Canceled</value>
+      </condition>
+    </filter>
+  </entity>
+</fetch>
+END;
+$data = $crmConnector->retrieveMultiple($queryXML);
+echo "Got ".$data->Count." records...".PHP_EOL;
+$case = new DynamicsCRM2011_Incident($crmConnector);
+$statusCodes = $case->getOptionSetValues('StatusCode');
+$account = new DynamicsCRM2011_Account($crmConnector);
+$countryCodes = $account->getOptionSetValues('Aldata_SupportCountry');
+foreach($data->Entities as $aggregate_record) {
+	echo "Country = ".$countryCodes[$aggregate_record->Aldata_SupportCountry]
+		." / Product = ".$aggregate_record->Aldata_ProductFamily
+		." / Status = ".$statusCodes[$aggregate_record->StatusCode]
+		." / Cases = ".$aggregate_record->Count
+		.PHP_EOL;
 }
 
 
