@@ -79,7 +79,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	/* Cached Entity Definitions */
 	private $cachedEntityDefintions = Array();
 	/* Connection Details */
-	protected $connectorTimeout = 600;
+	protected static $connectorTimeout = 600;
 	protected $maximumRecords = self::MAX_CRM_RECORDS;
 	
 	/**
@@ -212,17 +212,17 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * Get the connector timeout value
 	 * @return int the maximum time the connector will wait for a response from the CRM in seconds
 	 */
-	public function getConnectorTimeout() {
-		return $this->connectorTimeout;
+	public static function getConnectorTimeout() {
+		return self::$connectorTimeout;
 	}
 	
 	/**
 	 * Set the connector timeout value
 	 * @param int $_connectorTimeout maximum time the connector will wait for a response from the CRM in seconds
 	 */
-	public function setConnectorTimeout($_connectorTimeout) {
+	public static function setConnectorTimeout($_connectorTimeout) {
 		if (!is_int($_connectorTimeout)) return;
-		$this->connectorTimeout = $_connectorTimeout;
+		self::$connectorTimeout = $_connectorTimeout;
 	}
 	
 	/**
@@ -1089,7 +1089,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$cURLHandle = curl_init();
 		curl_setopt($cURLHandle, CURLOPT_URL, $soapUrl);
 		curl_setopt($cURLHandle, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($cURLHandle, CURLOPT_TIMEOUT, $this->connectorTimeout);
+		curl_setopt($cURLHandle, CURLOPT_TIMEOUT, self::$connectorTimeout);
 		curl_setopt($cURLHandle, CURLOPT_SSL_VERIFYPEER, false);
 		curl_setopt($cURLHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 		curl_setopt($cURLHandle, CURLOPT_HTTPHEADER, $headers);
