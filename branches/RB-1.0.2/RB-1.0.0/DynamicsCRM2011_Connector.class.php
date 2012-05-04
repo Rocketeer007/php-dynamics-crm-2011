@@ -80,7 +80,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	private $cachedEntityDefintions = Array();
 	/* Connection Details */
 	protected static $connectorTimeout = 600;
-	protected $maximumRecords = self::MAX_CRM_RECORDS;
+	protected static $maximumRecords = self::MAX_CRM_RECORDS;
 	
 	/**
 	 * Create a new instance of the DynamicsCRM2011Connector
@@ -195,17 +195,17 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * Get the maximum records for a query
 	 * @return int the maximum records that will be returned from RetrieveMultiple per page
 	 */
-	public function getMaximumRecords() {
-		return $this->maximumRecords;
+	public static function getMaximumRecords() {
+		return self::$maximumRecords;
 	}
 	
 	/**
 	 * Set the maximum records for a query
 	 * @param int $_maximumRecords the maximum number of records to fetch per page
 	 */
-	public function setMaximumRecords($_maximumRecords) {
+	public static function setMaximumRecords($_maximumRecords) {
 		if (!is_int($_maximumRecords)) return;
-		$this->maximumRecords = $_maximumRecords;
+		self::$maximumRecords = $_maximumRecords;
 	}
 	
 	/**
@@ -1239,13 +1239,13 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Turn the queryXML into a DOMDocument so we can manipulate it */
 		$queryDOM = new DOMDocument(); $queryDOM->loadXML($queryXML);
 		/* Find the current limit, if there is one */
-		$currentLimit = $this->maximumRecords+1;
+		$currentLimit = self::$maximumRecords+1;
 		if ($queryDOM->documentElement->hasAttribute('count')) {
 			$currentLimit = $queryDOM->documentElement->getAttribute('count');
 		}
 		/* Determine the preferred limit (passed by argument, or 5000 if not set) */
-		$preferredLimit = ($limitCount == NULL) ? $this->maximumRecords : $limitCount;
-		if ($preferredLimit > $this->maximumRecords) $preferredLimit = $this->maximumRecords;
+		$preferredLimit = ($limitCount == NULL) ? self::$maximumRecords : $limitCount;
+		if ($preferredLimit > self::$maximumRecords) $preferredLimit = self::$maximumRecords;
 		/* If the current limit is not set, or is greater than the preferred limit, over-ride it */
 		if ($currentLimit > $preferredLimit) {
 			/* Modify the query that we send: Change the Count */
