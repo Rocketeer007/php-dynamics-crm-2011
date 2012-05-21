@@ -1651,7 +1651,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			/* Create an Array to hold the New & Old Value properties */
 			$valueArray = Array();
 			/* Get the New Attributes */
-			if ($auditDetailNode->getElementsByTagName('NewValue')->length > 0) {
+			if ($auditDetailNode->getElementsByTagName('NewValue')->length > 0 && 
+					$auditDetailNode->getElementsByTagName('NewValue')->item(0)->getElementsByTagName('Attributes')->length > 0) {
 				/* Get the Attributes */
 				$keyValueNodes = $auditDetailNode->getElementsByTagName('NewValue')->item(0)
 						->getElementsByTagName('Attributes')->item(0)
@@ -1666,7 +1667,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				self::addFormattedValues($valueArray, $keyValueNodes, Array('NewValue', 'OldValue'), 'NewValue');
 			}
 			/* Get the Old Attributes */
-			if ($auditDetailNode->getElementsByTagName('OldValue')->length > 0) {
+			if ($auditDetailNode->getElementsByTagName('OldValue')->length > 0 && 
+					$auditDetailNode->getElementsByTagName('OldValue')->item(0)->getElementsByTagName('Attributes')->length > 0) {
 				/* Get the Attributes */
 				$keyValueNodes = $auditDetailNode->getElementsByTagName('OldValue')->item(0)
 						->getElementsByTagName('Attributes')->item(0)
