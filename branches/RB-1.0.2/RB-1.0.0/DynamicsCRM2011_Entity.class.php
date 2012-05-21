@@ -1039,6 +1039,27 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Return the available options for this property */
 		return $this->optionSets[$optionSetName];
 	}
+	
+	/**
+	 * Get the label for a field
+	 * 
+	 * @param String $property
+	 * @return string
+	 */
+	public function getPropertyLabel($property) {
+		/* Handle dynamic properties... */
+		$property = strtolower($property);
+		/* Only return the value if it exists & is readable */
+		if (array_key_exists($property, $this->properties)) {
+			return $this->properties[$property]['Label'];
+		}
+		/* Also check for an AliasedValue */
+		if (array_key_exists($property, $this->localProperties)) {
+			return $this->localProperties[$property]['Label'];
+		}
+		/* Property doesn't exist, return empty string */
+		return '';
+	}
 }
 
 ?>
