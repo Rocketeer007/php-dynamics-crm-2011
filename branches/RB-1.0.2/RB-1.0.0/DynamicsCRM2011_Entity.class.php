@@ -561,11 +561,15 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 						case 'picklist':
 						case 'state':
 						case 'status':
-							/* OptionSetValue - Just get the numerical value */
+							/* OptionSetValue - Just get the numerical value, but as an XML structure */
 							$xmlType = 'OptionSetValue';
 							$xmlTypeNS = 'http://schemas.microsoft.com/xrm/2011/Contracts';
 							$xmlValue = NULL;
 							$xmlValueChild = $entityDOM->createElement('b:Value', $this->propertyValues[$property]['Value']->Value);
+							break;
+						case 'boolean':
+							/* Boolean - Just get the numerical value */
+							$xmlValue = $this->propertyValues[$property]['Value']->Value;
 							break;
 						case 'string':
 						case 'int':
