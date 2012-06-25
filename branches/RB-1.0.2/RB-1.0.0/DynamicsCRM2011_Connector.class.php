@@ -101,9 +101,14 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param boolean $_debug display debug information when accessing the server - not recommended in Production!
 	 * @return DynamicsCRM2011Connector
 	 */
-	function __construct($_discoveryURI, $_organizationUniqueName, $_username = NULL, $_password = NULL, $_debug = FALSE) {
+	function __construct($_discoveryURI, $_organizationUniqueName = NULL, $_username = NULL, $_password = NULL, $_debug = FALSE) {
 		/* Enable or disable debug mode */
 		self::$debugMode = $_debug;
+		
+		/* Check if we're using a cached login */
+		if (is_array($_discoveryURI)) {
+			return $this->loadLoginCache($_discoveryURI);
+		}
 		
 		/* Store the organization details */
 		$this->discoveryURI = $_discoveryURI;
@@ -2251,6 +2256,67 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$updateNode->appendChild($updateRequestDOM->importNode($entity->getEntityDOM(), true));
 		/* Return the DOMNode */
 		return $updateNode;
+	}
+	
+	/**
+	 * Get all the details of the Connector that would be needed to
+	 * bypass the normal login process next time...
+	 * Note that the Entity definition cache, the DOMs and the security 
+	 * policies are excluded from the Cache.
+	 * @return Array
+	 */
+	public function getLoginCache() {
+		return Array(
+				$this->discoveryURI,
+				$this->organizationUniqueName,
+				$this->organizationURI,
+				$this->security,
+				NULL,
+				$this->discoverySoapActions,
+				$this->discoveryExecuteAction,
+				NULL,
+				NULL,
+				$this->organizationSoapActions,
+				$this->organizationCreateAction,
+				$this->organizationDeleteAction,
+				$this->organizationExecuteAction,
+				$this->organizationRetrieveAction,
+				$this->organizationRetrieveMultipleAction,
+				$this->organizationUpdateAction,
+				NULL,
+				$this->organizationSecurityToken,
+				Array(),
+				self::$connectorTimeout,
+				self::$maximumRecords,);
+	}
+	
+	/**
+	 * Restore the cached details
+	 * @param Array $loginCache
+	 */
+	private function loadLoginCache(Array $loginCache) {
+		list(
+				$this->discoveryURI,
+				$this->organizationUniqueName,
+				$this->organizationURI,
+				$this->security,
+				$this->discoveryDOM,
+				$this->discoverySoapActions,
+				$this->discoveryExecuteAction,
+				$this->discoverySecurityPolicy,
+				$this->organizationDOM,
+				$this->organizationSoapActions,
+				$this->organizationCreateAction,
+				$this->organizationDeleteAction,
+				$this->organizationExecuteAction,
+				$this->organizationRetrieveAction,
+				$this->organizationRetrieveMultipleAction,
+				$this->organizationUpdateAction,
+				$this->organizationSecurityPolicy,
+				$this->organizationSecurityToken,
+				$this->cachedEntityDefintions,
+				self::$connectorTimeout,
+				self::$maximumRecords) = $loginCache;
 	}
 }
 
