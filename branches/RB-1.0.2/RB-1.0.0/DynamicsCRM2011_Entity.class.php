@@ -549,6 +549,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 							/* Memo - This gets treated as a normal String */
 							$xmlType = 'string';
 							break;
+						case 'integer':
+							/* Integer - This gets treated as an "int" */
+							$xmlType = 'int';
+							break;
 						case 'datetime':
 							/* Date/Time - Stored in the Entity as a PHP Date, needs to be XML format. Type is also mixed-case */
 							$xmlValue = gmdate("Y-m-d\TH:i:s\Z", $xmlValue);
@@ -977,6 +981,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				case 'String':
 				case 'Virtual':
 				case 'EntityName':
+				case 'Integer':
 					/* Just cast it to a String to display */
 					echo $linePrefix."\t".'('.$propertyDetails['Type'].') '. $this->propertyValues[$property]['Value'].PHP_EOL;
 					break;
