@@ -2258,6 +2258,103 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		return $updateNode;
 	}
 	
+	/** 
+	 * Send a SetStateRequest request to the Dynamics CRM 2011 server and return...
+	 * 
+	 * @param DynamicsCRM2011_Entity $entity Entity that is to be updated
+	 * @param int $state StateCode to set
+	 * @param int $status StatusCode to set (or NULL to use StateCode)
+	 * @return boolean indicator of success
+	 */
+	public function setState(DynamicsCRM2011_Entity $entity, $state, $status = NULL) {
+		/* If there is no Status, use the State */
+		if ($status == NULL) $status = $state;
+		/* Send the sequrity request and get a security token */
+		$securityToken = $this->getOrganizationSecurityToken();
+		/* Generate the XML for the Body of a RetrieveRecordChangeHistory request */
+		$executeNode = self::generateSetStateRequest($entity, $state, $status);
+		
+		if (self::$debugMode) echo PHP_EOL.'SetState Request: '.PHP_EOL.$executeNode->C14N().PHP_EOL.PHP_EOL;
+		
+		/* Turn this into a SOAP request, and send it */
+		$setStateSoapRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationExecuteAction(), $securityToken, $executeNode);
+		$soapResponse = self::getSoapResponse($this->organizationURI, $setStateSoapRequest);
+	
+		if (self::$debugMode) echo PHP_EOL.'SetState Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
+	
+		/* Load the XML into a DOMDocument */
+		$soapResponseDOM = new DOMDocument();
+		$soapResponseDOM->loadXML($soapResponse);
+	
+		/* Find the ExecuteResponse */
+		$executeResponseNode = NULL;
+		foreach ($soapResponseDOM->getElementsByTagName('ExecuteResponse') as $node) {
+			$executeResponseNode = $node;
+			break;
+		}
+		unset($node);
+		if ($executeResponseNode == NULL) {
+			throw new Exception('Could not find ExecuteResponse node in XML returned from Server');
+			return FALSE;
+		}
+		
+		/* Find the ExecuteResult */
+		$executeResultNode = NULL;
+		foreach ($executeResponseNode->getElementsByTagName('ExecuteResult') as $node) {
+			$executeResultNode = $node;
+			break;
+		}
+		unset($node);
+		if (v == NULL) {
+			throw new Exception('Could not find ExecuteResult node in XML returned from Server');
+			return FALSE;
+		}
+		
+		/* Update occurred successfully */
+		return true;
+	}
+	
+	/**
+	 * Generate a SetState Request
+	 * @ignore
+	 */
+	protected static function generateSetStateRequest(DynamicsCRM2011_Entity $entity, $state, $status) {
+		/* Generate the SetStateRequest message */
+		$setStateRequestDOM = new DOMDocument();
+		$executeNode = $setStateRequestDOM->appendChild($setStateRequestDOM->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts/Services', 'Execute'));
+		$requestNode = $executeNode->appendChild($setStateRequestDOM->createElement('request'));
+		$requestNode->setAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'i:type', 'c:SetStateRequest');
+		$requestNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:b', 'http://schemas.microsoft.com/xrm/2011/Contracts');
+		$requestNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:c', 'http://schemas.microsoft.com/crm/2011/Contracts');
+		$parametersNode = $requestNode->appendChild($setStateRequestDOM->createElement('b:Parameters'));
+		$parametersNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:d', 'http://schemas.datacontract.org/2004/07/System.Collections.Generic');
+		
+		$keyValuePairNode1 = $parametersNode->appendChild($setStateRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
+		$keyValuePairNode1->appendChild($setStateRequestDOM->createElement('d:key', 'EntityMoniker'));
+		$valueNode1 = $keyValuePairNode1->appendChild($setStateRequestDOM->createElement('d:value'));
+		$valueNode1->setAttribute('i:type', 'b:EntityReference');
+		$valueNode1->appendChild($setStateRequestDOM->createElement('b:Id', $entity->ID));
+		$valueNode1->appendChild($setStateRequestDOM->createElement('b:LogicalName', $entity->LogicalName));
+		$valueNode1->appendChild($setStateRequestDOM->createElement('b:Name'))->setAttribute('i:nil', 'true');
+		
+		$keyValuePairNode2 = $parametersNode->appendChild($setStateRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
+		$keyValuePairNode2->appendChild($setStateRequestDOM->createElement('d:key', 'State'));
+		$valueNode2 = $keyValuePairNode2->appendChild($setStateRequestDOM->createElement('d:value'));
+		$valueNode2->setAttribute('i:type', 'b:OptionSetValue');
+		$valueNode2->appendChild($setStateRequestDOM->createElement('b:Value', $state));
+		
+		$keyValuePairNode3 = $parametersNode->appendChild($setStateRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
+		$keyValuePairNode3->appendChild($setStateRequestDOM->createElement('d:key', 'Status'));
+		$valueNode3 = $keyValuePairNode3->appendChild($setStateRequestDOM->createElement('d:value'));
+		$valueNode3->setAttribute('i:type', 'b:OptionSetValue');
+		$valueNode3->appendChild($setStateRequestDOM->createElement('b:Value', $status));
+		
+		$requestNode->appendChild($setStateRequestDOM->createElement('b:RequestId'))->setAttribute('i:nil', 'true');
+		$requestNode->appendChild($setStateRequestDOM->createElement('b:RequestName', 'SetState'));
+		/* Return the DOMNode */
+		return $executeNode;
+	}
+	
 	/**
 	 * Get all the details of the Connector that would be needed to
 	 * bypass the normal login process next time...
