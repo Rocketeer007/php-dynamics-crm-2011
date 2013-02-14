@@ -2305,7 +2305,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			break;
 		}
 		unset($node);
-		if (v == NULL) {
+		if ($executeResultNode == NULL) {
 			throw new Exception('Could not find ExecuteResult node in XML returned from Server');
 			return FALSE;
 		}
