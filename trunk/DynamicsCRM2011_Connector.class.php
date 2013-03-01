@@ -78,6 +78,9 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	private $organizationSecurityToken;
 	/* Cached Entity Definitions */
 	private $cachedEntityDefintions = Array();
+	/* Connection Details */
+	protected static $connectorTimeout = 600;
+	protected static $maximumRecords = self::MAX_CRM_RECORDS;
 	
 	/**
 	 * Create a new instance of the DynamicsCRM2011Connector
@@ -98,9 +101,14 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param boolean $_debug display debug information when accessing the server - not recommended in Production!
 	 * @return DynamicsCRM2011Connector
 	 */
-	function __construct($_discoveryURI, $_organizationUniqueName, $_username = NULL, $_password = NULL, $_debug = FALSE) {
+	function __construct($_discoveryURI, $_organizationUniqueName = NULL, $_username = NULL, $_password = NULL, $_debug = FALSE) {
 		/* Enable or disable debug mode */
 		self::$debugMode = $_debug;
+		
+		/* Check if we're using a cached login */
+		if (is_array($_discoveryURI)) {
+			return $this->loadLoginCache($_discoveryURI);
+		}
 		
 		/* Store the organization details */
 		$this->discoveryURI = $_discoveryURI;
@@ -189,6 +197,40 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	}
 	
 	/**
+	 * Get the maximum records for a query
+	 * @return int the maximum records that will be returned from RetrieveMultiple per page
+	 */
+	public static function getMaximumRecords() {
+		return self::$maximumRecords;
+	}
+	
+	/**
+	 * Set the maximum records for a query
+	 * @param int $_maximumRecords the maximum number of records to fetch per page
+	 */
+	public static function setMaximumRecords($_maximumRecords) {
+		if (!is_int($_maximumRecords)) return;
+		self::$maximumRecords = $_maximumRecords;
+	}
+	
+	/**
+	 * Get the connector timeout value
+	 * @return int the maximum time the connector will wait for a response from the CRM in seconds
+	 */
+	public static function getConnectorTimeout() {
+		return self::$connectorTimeout;
+	}
+	
+	/**
+	 * Set the connector timeout value
+	 * @param int $_connectorTimeout maximum time the connector will wait for a response from the CRM in seconds
+	 */
+	public static function setConnectorTimeout($_connectorTimeout) {
+		if (!is_int($_connectorTimeout)) return;
+		self::$connectorTimeout = $_connectorTimeout;
+	}
+	
+	/**
 	 * Get the Discovery URL which is currently in use
 	 * @return string the URL of the Organization service
 	 * @throws Exception if the Discovery Service security details have not been set, 
@@ -232,7 +274,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			return FALSE;
 		}
 		if ($organizationServiceURI == NULL) {
-			throw new Exception('Could not find OrganizationService URI for the Organization <'.$organizationUniqueName.'>');
+			throw new Exception('Could not find OrganizationService URI for the Organization <'.$this->organizationUniqueName.'>');
 			return FALSE;
 		}
 		$this->organizationURI = $organizationServiceURI;
@@ -1052,7 +1094,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$cURLHandle = curl_init();
 		curl_setopt($cURLHandle, CURLOPT_URL, $soapUrl);
 		curl_setopt($cURLHandle, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($cURLHandle, CURLOPT_TIMEOUT, 60);
+		curl_setopt($cURLHandle, CURLOPT_TIMEOUT, self::$connectorTimeout);
 		curl_setopt($cURLHandle, CURLOPT_SSL_VERIFYPEER, false);
 		curl_setopt($cURLHandle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 		curl_setopt($cURLHandle, CURLOPT_HTTPHEADER, $headers);
@@ -1202,13 +1244,13 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Turn the queryXML into a DOMDocument so we can manipulate it */
 		$queryDOM = new DOMDocument(); $queryDOM->loadXML($queryXML);
 		/* Find the current limit, if there is one */
-		$currentLimit = self::MAX_CRM_RECORDS+1;
+		$currentLimit = self::$maximumRecords+1;
 		if ($queryDOM->documentElement->hasAttribute('count')) {
 			$currentLimit = $queryDOM->documentElement->getAttribute('count');
 		}
 		/* Determine the preferred limit (passed by argument, or 5000 if not set) */
-		$preferredLimit = ($limitCount == NULL) ? self::MAX_CRM_RECORDS : $limitCount;
-		if ($preferredLimit > self::MAX_CRM_RECORDS) $preferredLimit = self::MAX_CRM_RECORDS;
+		$preferredLimit = ($limitCount == NULL) ? self::$maximumRecords : $limitCount;
+		if ($preferredLimit > self::$maximumRecords) $preferredLimit = self::$maximumRecords;
 		/* If the current limit is not set, or is greater than the preferred limit, over-ride it */
 		if ($currentLimit > $preferredLimit) {
 			/* Modify the query that we send: Change the Count */
@@ -1614,7 +1656,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			/* Create an Array to hold the New & Old Value properties */
 			$valueArray = Array();
 			/* Get the New Attributes */
-			if ($auditDetailNode->getElementsByTagName('NewValue')->length > 0) {
+			if ($auditDetailNode->getElementsByTagName('NewValue')->length > 0 && 
+					$auditDetailNode->getElementsByTagName('NewValue')->item(0)->getElementsByTagName('Attributes')->length > 0) {
 				/* Get the Attributes */
 				$keyValueNodes = $auditDetailNode->getElementsByTagName('NewValue')->item(0)
 						->getElementsByTagName('Attributes')->item(0)
@@ -1629,7 +1672,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				self::addFormattedValues($valueArray, $keyValueNodes, Array('NewValue', 'OldValue'), 'NewValue');
 			}
 			/* Get the Old Attributes */
-			if ($auditDetailNode->getElementsByTagName('OldValue')->length > 0) {
+			if ($auditDetailNode->getElementsByTagName('OldValue')->length > 0 && 
+					$auditDetailNode->getElementsByTagName('OldValue')->item(0)->getElementsByTagName('Attributes')->length > 0) {
 				/* Get the Attributes */
 				$keyValueNodes = $auditDetailNode->getElementsByTagName('OldValue')->item(0)
 						->getElementsByTagName('Attributes')->item(0)
@@ -2212,6 +2256,164 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$updateNode->appendChild($updateRequestDOM->importNode($entity->getEntityDOM(), true));
 		/* Return the DOMNode */
 		return $updateNode;
+	}
+	
+	/** 
+	 * Send a SetStateRequest request to the Dynamics CRM 2011 server and return...
+	 * 
+	 * @param DynamicsCRM2011_Entity $entity Entity that is to be updated
+	 * @param int $state StateCode to set
+	 * @param int $status StatusCode to set (or NULL to use StateCode)
+	 * @return boolean indicator of success
+	 */
+	public function setState(DynamicsCRM2011_Entity $entity, $state, $status = NULL) {
+		/* If there is no Status, use the State */
+		if ($status == NULL) $status = $state;
+		/* Send the sequrity request and get a security token */
+		$securityToken = $this->getOrganizationSecurityToken();
+		/* Generate the XML for the Body of a RetrieveRecordChangeHistory request */
+		$executeNode = self::generateSetStateRequest($entity, $state, $status);
+		
+		if (self::$debugMode) echo PHP_EOL.'SetState Request: '.PHP_EOL.$executeNode->C14N().PHP_EOL.PHP_EOL;
+		
+		/* Turn this into a SOAP request, and send it */
+		$setStateSoapRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationExecuteAction(), $securityToken, $executeNode);
+		$soapResponse = self::getSoapResponse($this->organizationURI, $setStateSoapRequest);
+	
+		if (self::$debugMode) echo PHP_EOL.'SetState Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
+	
+		/* Load the XML into a DOMDocument */
+		$soapResponseDOM = new DOMDocument();
+		$soapResponseDOM->loadXML($soapResponse);
+	
+		/* Find the ExecuteResponse */
+		$executeResponseNode = NULL;
+		foreach ($soapResponseDOM->getElementsByTagName('ExecuteResponse') as $node) {
+			$executeResponseNode = $node;
+			break;
+		}
+		unset($node);
+		if ($executeResponseNode == NULL) {
+			throw new Exception('Could not find ExecuteResponse node in XML returned from Server');
+			return FALSE;
+		}
+		
+		/* Find the ExecuteResult */
+		$executeResultNode = NULL;
+		foreach ($executeResponseNode->getElementsByTagName('ExecuteResult') as $node) {
+			$executeResultNode = $node;
+			break;
+		}
+		unset($node);
+		if ($executeResultNode == NULL) {
+			throw new Exception('Could not find ExecuteResult node in XML returned from Server');
+			return FALSE;
+		}
+		
+		/* Update occurred successfully */
+		return true;
+	}
+	
+	/**
+	 * Generate a SetState Request
+	 * @ignore
+	 */
+	protected static function generateSetStateRequest(DynamicsCRM2011_Entity $entity, $state, $status) {
+		/* Generate the SetStateRequest message */
+		$setStateRequestDOM = new DOMDocument();
+		$executeNode = $setStateRequestDOM->appendChild($setStateRequestDOM->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts/Services', 'Execute'));
+		$requestNode = $executeNode->appendChild($setStateRequestDOM->createElement('request'));
+		$requestNode->setAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'i:type', 'c:SetStateRequest');
+		$requestNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:b', 'http://schemas.microsoft.com/xrm/2011/Contracts');
+		$requestNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:c', 'http://schemas.microsoft.com/crm/2011/Contracts');
+		$parametersNode = $requestNode->appendChild($setStateRequestDOM->createElement('b:Parameters'));
+		$parametersNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:d', 'http://schemas.datacontract.org/2004/07/System.Collections.Generic');
+		
+		$keyValuePairNode1 = $parametersNode->appendChild($setStateRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
+		$keyValuePairNode1->appendChild($setStateRequestDOM->createElement('d:key', 'EntityMoniker'));
+		$valueNode1 = $keyValuePairNode1->appendChild($setStateRequestDOM->createElement('d:value'));
+		$valueNode1->setAttribute('i:type', 'b:EntityReference');
+		$valueNode1->appendChild($setStateRequestDOM->createElement('b:Id', $entity->ID));
+		$valueNode1->appendChild($setStateRequestDOM->createElement('b:LogicalName', $entity->LogicalName));
+		$valueNode1->appendChild($setStateRequestDOM->createElement('b:Name'))->setAttribute('i:nil', 'true');
+		
+		$keyValuePairNode2 = $parametersNode->appendChild($setStateRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
+		$keyValuePairNode2->appendChild($setStateRequestDOM->createElement('d:key', 'State'));
+		$valueNode2 = $keyValuePairNode2->appendChild($setStateRequestDOM->createElement('d:value'));
+		$valueNode2->setAttribute('i:type', 'b:OptionSetValue');
+		$valueNode2->appendChild($setStateRequestDOM->createElement('b:Value', $state));
+		
+		$keyValuePairNode3 = $parametersNode->appendChild($setStateRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
+		$keyValuePairNode3->appendChild($setStateRequestDOM->createElement('d:key', 'Status'));
+		$valueNode3 = $keyValuePairNode3->appendChild($setStateRequestDOM->createElement('d:value'));
+		$valueNode3->setAttribute('i:type', 'b:OptionSetValue');
+		$valueNode3->appendChild($setStateRequestDOM->createElement('b:Value', $status));
+		
+		$requestNode->appendChild($setStateRequestDOM->createElement('b:RequestId'))->setAttribute('i:nil', 'true');
+		$requestNode->appendChild($setStateRequestDOM->createElement('b:RequestName', 'SetState'));
+		/* Return the DOMNode */
+		return $executeNode;
+	}
+	
+	/**
+	 * Get all the details of the Connector that would be needed to
+	 * bypass the normal login process next time...
+	 * Note that the Entity definition cache, the DOMs and the security 
+	 * policies are excluded from the Cache.
+	 * @return Array
+	 */
+	public function getLoginCache() {
+		return Array(
+				$this->discoveryURI,
+				$this->organizationUniqueName,
+				$this->organizationURI,
+				$this->security,
+				NULL,
+				$this->discoverySoapActions,
+				$this->discoveryExecuteAction,
+				NULL,
+				NULL,
+				$this->organizationSoapActions,
+				$this->organizationCreateAction,
+				$this->organizationDeleteAction,
+				$this->organizationExecuteAction,
+				$this->organizationRetrieveAction,
+				$this->organizationRetrieveMultipleAction,
+				$this->organizationUpdateAction,
+				NULL,
+				$this->organizationSecurityToken,
+				Array(),
+				self::$connectorTimeout,
+				self::$maximumRecords,);
+	}
+	
+	/**
+	 * Restore the cached details
+	 * @param Array $loginCache
+	 */
+	private function loadLoginCache(Array $loginCache) {
+		list(
+				$this->discoveryURI,
+				$this->organizationUniqueName,
+				$this->organizationURI,
+				$this->security,
+				$this->discoveryDOM,
+				$this->discoverySoapActions,
+				$this->discoveryExecuteAction,
+				$this->discoverySecurityPolicy,
+				$this->organizationDOM,
+				$this->organizationSoapActions,
+				$this->organizationCreateAction,
+				$this->organizationDeleteAction,
+				$this->organizationExecuteAction,
+				$this->organizationRetrieveAction,
+				$this->organizationRetrieveMultipleAction,
+				$this->organizationUpdateAction,
+				$this->organizationSecurityPolicy,
+				$this->organizationSecurityToken,
+				$this->cachedEntityDefintions,
+				self::$connectorTimeout,
+				self::$maximumRecords) = $loginCache;
 	}
 }
 
