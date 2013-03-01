@@ -41,7 +41,7 @@ then parsed to determine the correct way to login, and the addresses to use
 /* Connect to the Dynamics CRM 2011 server */
 echo date('Y-m-d H:i:s')."\tConnecting to the CRM... ";
 $crmConnector = new DynamicsCRM2011_Connector($discoveryServiceURI, $organizationUniqueName, $loginUsername, $loginPassword);
-echo 'Done'.PHP_EOL;
+echo 'Done at '.date('Y-m-d H:i:s').PHP_EOL;
 
 /****************************************************************************
 The second option is more focussed on interactive systems, i.e. web-based 
@@ -330,7 +330,7 @@ END;
 if (!defined('SKIP_DEMO8')) {
 	echo date('Y-m-d H:i:s')."\tFetching details of Cases data... ";
 	$caseEntityData = $crmConnector->retrieveEntity('incident', NULL, 'Entity Attributes');
-	echo 'Done'.PHP_EOL;
+	echo 'Done at '.date('Y-m-d H:i:s').PHP_EOL;
 	//echo PHP_EOL.'Start of XML Object data...'.PHP_EOL;
 	//echo $caseEntityData->asXML();
 	//echo PHP_EOL.'End of XML Object data...'.PHP_EOL;
@@ -536,49 +536,3 @@ END;
 				." / CQ Cards = ".$aggregate_record->CQ_Card_Count.PHP_EOL;
 	}
 }
-
-$queryXML = <<<END
-<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="true" aggregate="true">
-  <entity name="incident">
-    <attribute name="ticketnumber" aggregate="count" alias="count" />
-    <attribute name="statuscode" groupby="true" alias="statuscode" />
-    <order alias="statuscode" descending="false" />
-    <link-entity name="account" from="accountid" to="customerid" visible="false" link-type="outer" alias="customerid">
-      <attribute name="aldata_supportcountry" groupby="true" alias="aldata_supportcountry" />
-    </link-entity>
-    <link-entity name="product" from="productid" to="productid" alias="productid">
-      <attribute name="aldata_productfamily" groupby="true" alias="aldata_productfamily" />
-      <filter type="and">
-        <condition attribute="aldata_productfamily" operator="not-null" />
-        <condition attribute="name" operator="not-in">
-          <value>PMS-AS400</value>
-          <value>TPEAS400</value>
-        </condition>
-      </filter>
-    </link-entity>
-    <filter type="and">
-      <condition attribute="statuscodename" operator="not-in">
-        <value>Solution Delivered</value>
-        <value>Closed</value>
-        <value>Canceled</value>
-      </condition>
-    </filter>
-  </entity>
-</fetch>
-END;
-$data = $crmConnector->retrieveMultiple($queryXML);
-echo "Got ".$data->Count." records...".PHP_EOL;
-$case = new DynamicsCRM2011_Incident($crmConnector);
-$statusCodes = $case->getOptionSetValues('StatusCode');
-$account = new DynamicsCRM2011_Account($crmConnector);
-$countryCodes = $account->getOptionSetValues('Aldata_SupportCountry');
-foreach($data->Entities as $aggregate_record) {
-	echo "Country = ".$countryCodes[$aggregate_record->Aldata_SupportCountry]
-		." / Product = ".$aggregate_record->Aldata_ProductFamily
-		." / Status = ".$statusCodes[$aggregate_record->StatusCode]
-		." / Cases = ".$aggregate_record->Count
-		.PHP_EOL;
-}
-
-
-?>
