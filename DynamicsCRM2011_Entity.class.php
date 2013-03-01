@@ -549,6 +549,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 							/* Memo - This gets treated as a normal String */
 							$xmlType = 'string';
 							break;
+						case 'integer':
+							/* Integer - This gets treated as an "int" */
+							$xmlType = 'int';
+							break;
 						case 'datetime':
 							/* Date/Time - Stored in the Entity as a PHP Date, needs to be XML format. Type is also mixed-case */
 							$xmlValue = gmdate("Y-m-d\TH:i:s\Z", $xmlValue);
@@ -561,11 +565,15 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 						case 'picklist':
 						case 'state':
 						case 'status':
-							/* OptionSetValue - Just get the numerical value */
+							/* OptionSetValue - Just get the numerical value, but as an XML structure */
 							$xmlType = 'OptionSetValue';
 							$xmlTypeNS = 'http://schemas.microsoft.com/xrm/2011/Contracts';
 							$xmlValue = NULL;
 							$xmlValueChild = $entityDOM->createElement('b:Value', $this->propertyValues[$property]['Value']->Value);
+							break;
+						case 'boolean':
+							/* Boolean - Just get the numerical value */
+							$xmlValue = $this->propertyValues[$property]['Value']->Value;
 							break;
 						case 'string':
 						case 'int':
@@ -768,40 +776,15 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					}
 					break;
 				case 'AliasedValue':
-					/* For an AliasedValue, we need to find the Alias first */
-					list($aliasName, $aliasedFieldName) = explode('.', $attributeKey);
-					/* Get the Entity type that is being Aliased */
-					$aliasEntityName = $keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('EntityLogicalName')->item(0)->textContent;
-					/* Get the Field of the Entity that is being Aliased */
-					$aliasedFieldName = $keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('AttributeLogicalName')->item(0)->textContent;
-					/* Next, check if this Alias already has been used */
-					if (array_key_exists($aliasName, $this->propertyValues)) {
-						/* Get the existing Entity */
-						$storedValue = $this->propertyValues[$aliasName]['Value'];
-						/* Check if the existing Entity is NULL */
-						if ($storedValue == NULL) {
-							/* Create a new Entity of the appropriate type */
-							$storedValue = self::fromLogicalName($conn, $aliasEntityName);
-							/* Alias overlaps with normal field - check this is allowed */
-							if (!in_array($aliasEntityName, $this->properties[$aliasName]['lookupTypes'])) {
-								trigger_error('Alias '.$aliasName.' overlaps and existing field of type '.implode(' or ', $this->properties[$aliasName]['lookupTypes'])
-										.' but is being set to a '.$aliasEntityName,
-										E_USER_WARNING);
-							}
-						} else {
-							/* Check it's the right type */
-							if ($storedValue->logicalName != $aliasEntityName) {
-								trigger_error('Alias '.$aliasName.' was created as a '.$storedValue->logicalName.' but is now referenced as a '.$aliasEntityName.' in field '.$attributeKey,
-										E_USER_WARNING);
-							}
-						}
-					} else {
-						/* Create a new Entity of the appropriate type */
-						$storedValue = self::fromLogicalName($conn, $aliasEntityName);
+					/* If there is a "." in the AttributeKey, it's a proper "Entity" alias */
+					/* Otherwise, it's an Alias for an Aggregate Field */
+					if (strpos($attributeKey, '.') === FALSE) {
+						/* This is an Aggregate Field alias - do NOT create an Entity */
+						$aliasedFieldName = $keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('AttributeLogicalName')->item(0)->textContent;
 						/* Create a new Attribute on this Entity for the Alias */
-						$this->localProperties[$aliasName] = Array(
-								'Label' => 'AliasedValue: '.$aliasName,
-								'Description' => 'Related '.$aliasEntityName.' with alias '.$aliasName,
+						$this->localProperties[$attributeKey] = Array(
+								'Label' => 'AliasedValue: '.$attributeKey,
+								'Description' => 'Aggregate field with alias '.$attributeKey.' based on field '.$aliasedFieldName,
 								'isCustom' => true,
 								'isPrimaryId' => false,
 								'isPrimaryName' => false,
@@ -815,37 +798,93 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 								'AttributeOf' => NULL,
 								'OptionSet' => NULL,
 							);
-						$this->propertyValues[$aliasName] = Array(
+						$this->propertyValues[$attributeKey] = Array(
 								'Value'  => NULL,
 								'Changed' => false,
 							);
+						/* Determine the Value for this field */
+						$valueType =  $keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('Value')->item(0)->getAttribute('type');
+						$storedValue = $keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('Value')->item(0)->textContent;
+					} else {
+						/* For an AliasedValue, we need to find the Alias first */
+						list($aliasName, $aliasedFieldName) = explode('.', $attributeKey);
+						/* Get the Entity type that is being Aliased */
+						$aliasEntityName = $keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('EntityLogicalName')->item(0)->textContent;
+						/* Get the Field of the Entity that is being Aliased */
+						$aliasedFieldName = $keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('AttributeLogicalName')->item(0)->textContent;
+						/* Next, check if this Alias already has been used */
+						if (array_key_exists($aliasName, $this->propertyValues)) {
+							/* Get the existing Entity */
+							$storedValue = $this->propertyValues[$aliasName]['Value'];
+							/* Check if the existing Entity is NULL */
+							if ($storedValue == NULL) {
+								/* Create a new Entity of the appropriate type */
+								$storedValue = self::fromLogicalName($conn, $aliasEntityName);
+								/* Alias overlaps with normal field - check this is allowed */
+								if (!in_array($aliasEntityName, $this->properties[$aliasName]['lookupTypes'])) {
+									trigger_error('Alias '.$aliasName.' overlaps and existing field of type '.implode(' or ', $this->properties[$aliasName]['lookupTypes'])
+											.' but is being set to a '.$aliasEntityName,
+											E_USER_WARNING);
+								}
+							} else {
+								/* Check it's the right type */
+								if ($storedValue->logicalName != $aliasEntityName) {
+									trigger_error('Alias '.$aliasName.' was created as a '.$storedValue->logicalName.' but is now referenced as a '.$aliasEntityName.' in field '.$attributeKey,
+											E_USER_WARNING);
+								}
+							}
+						} else {
+							/* Create a new Entity of the appropriate type */
+							$storedValue = self::fromLogicalName($conn, $aliasEntityName);
+							/* Create a new Attribute on this Entity for the Alias */
+							$this->localProperties[$aliasName] = Array(
+									'Label' => 'AliasedValue: '.$aliasName,
+									'Description' => 'Related '.$aliasEntityName.' with alias '.$aliasName,
+									'isCustom' => true,
+									'isPrimaryId' => false,
+									'isPrimaryName' => false,
+									'Type'  => 'AliasedValue',
+									'isLookup' => true,
+									'lookupTypes' => NULL,
+									'Create' => false,
+									'Update' => false,
+									'Read'   => true,
+									'RequiredLevel' => 'None',
+									'AttributeOf' => NULL,
+									'OptionSet' => NULL,
+								);
+							$this->propertyValues[$aliasName] = Array(
+									'Value'  => NULL,
+									'Changed' => false,
+								);
+						}
+						/* Re-create the DOMElement for just this Attribute */
+						$aliasDoc = new DOMDocument();
+						$aliasAttributesNode = $aliasDoc->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:Attributes'));
+						$aliasAttributeNode = $aliasAttributesNode->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:KeyValuePairOfstringanyType'));
+						$aliasAttributeNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:key', $aliasedFieldName));
+						$aliasAttributeValueNode = $aliasAttributeNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:value'));
+						/* Ensure we have all the child nodes of the Value */
+						foreach ($keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('Value')->item(0)->childNodes as $child){
+							$aliasAttributeValueNode->appendChild($aliasDoc->importNode($child, true));
+						}
+						/* Ensure we have the Type attribute, with Namespace */
+						$aliasAttributeValueNode->setAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'i:type', 
+								$keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('Value')->item(0)->getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'type'));
+						/* Re-create the DOMElement for this Attribute's FormattedValue */
+						$aliasFormattedValuesNode = $aliasDoc->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:FormattedValues'));
+						$aliasFormattedValuesNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:c', 'http://schemas.datacontract.org/2004/07/System.Collections.Generic');
+						/* Check if there is a formatted value to add */
+						if (array_key_exists($attributeKey, $formattedValues)) {
+							$aliasFormattedValueNode = $aliasFormattedValuesNode->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:KeyValuePairOfstringstring'));
+							$aliasFormattedValueNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:key', $aliasedFieldName));
+							$aliasFormattedValueNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:value', $formattedValues[$attributeKey]));
+						}
+						/* Now set the DOM values on the Entity */
+						$storedValue->setAttributesFromDOM($conn, $aliasAttributesNode, $aliasFormattedValuesNode);
+						/* Finally, ensure that this is stored on the Entity using the Alias */
+						$attributeKey = $aliasName;
 					}
-					/* Re-create the DOMElement for just this Attribute */
-					$aliasDoc = new DOMDocument();
-					$aliasAttributesNode = $aliasDoc->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:Attributes'));
-					$aliasAttributeNode = $aliasAttributesNode->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:KeyValuePairOfstringanyType'));
-					$aliasAttributeNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:key', $aliasedFieldName));
-					$aliasAttributeValueNode = $aliasAttributeNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:value'));
-					/* Ensure we have all the child nodes of the Value */
-					foreach ($keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('Value')->item(0)->childNodes as $child){
-						$aliasAttributeValueNode->appendChild($aliasDoc->importNode($child, true));
-					}
-					/* Ensure we have the Type attribute, with Namespace */
-					$aliasAttributeValueNode->setAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'i:type', 
-							$keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('Value')->item(0)->getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'type'));
-					/* Re-create the DOMElement for this Attribute's FormattedValue */
-					$aliasFormattedValuesNode = $aliasDoc->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:FormattedValues'));
-					$aliasFormattedValuesNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:c', 'http://schemas.datacontract.org/2004/07/System.Collections.Generic');
-					/* Check there is a formatted value to add */
-					if (array_key_exists($attributeKey, $formattedValues)) {
-						$aliasFormattedValueNode = $aliasFormattedValuesNode->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:KeyValuePairOfstringstring'));
-						$aliasFormattedValueNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:key', $aliasedFieldName));
-						$aliasFormattedValueNode->appendChild($aliasDoc->createElementNS('http://schemas.datacontract.org/2004/07/System.Collections.Generic', 'c:value', $formattedValues[$attributeKey]));
-					}
-					/* Now set the DOM values on the Entity */
-					$storedValue->setAttributesFromDOM($conn, $aliasAttributesNode, $aliasFormattedValuesNode);
-					/* Finally, ensure that this is stored on the Entity using the Alias */
-					$attributeKey = $aliasName;
 					break;
 				default:
 					trigger_error('No parse handling implemented for type '.$attributeValueType.' used by field '.$attributeKey,
@@ -910,7 +949,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				echo PHP_EOL;
 			}
 			/* Handle the Lookup types */
-			if ($propertyDetails['isLookup'] || $propertyDetails['Type'] == 'AliasedValue') {
+			if ($propertyDetails['isLookup']) {
 				/* EntityReference - Either just summarise the Entity, or Recurse */
 				if ($recursive) {
 					$this->propertyValues[$property]['Value']->printDetails($recursive, $tabLevel+1);
@@ -942,6 +981,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				case 'String':
 				case 'Virtual':
 				case 'EntityName':
+				case 'Integer':
 					/* Just cast it to a String to display */
 					echo $linePrefix."\t".'('.$propertyDetails['Type'].') '. $this->propertyValues[$property]['Value'].PHP_EOL;
 					break;
@@ -955,6 +995,12 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		}
 	}
 	
+	/**
+	 * Get a URL that can be used to directly open the Entity Details on the CRM
+	 * 
+	 * @param boolean $absolute If true, include the full domain; otherwise, just return a relative URL.
+	 * @return NULL|string the URL for the Entity on the CRM
+	 */
 	public function getURL($absolute = false) {
 		/* Cannot return a URL for an Entity with no ID */
 		if ($this->entityID == NULL) return NULL;
@@ -979,11 +1025,49 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Generate the base URL for Entities */
 		$domainURL = $urlDetails['scheme'].'://'.$urlDetails['host'].'/';
 		/* If the Organization Unique Name is part of the Organization URL, add it to the Domain */
-		if (strstr($organizationURL, $conn->getOrganization()) !== FALSE) {
+		if (strstr($organizationURL, '/'.$conn->getOrganization().'/') !== FALSE) {
 			$domainURL = $domainURL . $conn->getOrganization() .'/';
 		}
 		/* Update the Entity */
 		$this->entityDomain = $domainURL;
+	}
+	
+	/**
+	 * Get the possible values for a particular OptionSet property
+	 * 
+	 * @param String $property to list values for
+	 * @return Array list of the available options for this Property
+	 */
+	public function getOptionSetValues($property) {
+		/* Check that the specified property exists */
+		$property = strtolower($property);
+		if (!array_key_exists($property, $this->properties)) return NULL;
+		/* Check that the specified property is indeed an OptionSet */
+		$optionSetName = $this->properties[$property]['OptionSet'];
+		if ($optionSetName == NULL) return NULL;
+		/* Return the available options for this property */
+		return $this->optionSets[$optionSetName];
+	}
+	
+	/**
+	 * Get the label for a field
+	 * 
+	 * @param String $property
+	 * @return string
+	 */
+	public function getPropertyLabel($property) {
+		/* Handle dynamic properties... */
+		$property = strtolower($property);
+		/* Only return the value if it exists & is readable */
+		if (array_key_exists($property, $this->properties)) {
+			return $this->properties[$property]['Label'];
+		}
+		/* Also check for an AliasedValue */
+		if (array_key_exists($property, $this->localProperties)) {
+			return $this->localProperties[$property]['Label'];
+		}
+		/* Property doesn't exist, return empty string */
+		return '';
 	}
 }
 
