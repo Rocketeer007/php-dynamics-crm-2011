@@ -21,6 +21,7 @@ define('SKIP_DEMO7', TRUE);
 define('SKIP_DEMO8', TRUE);
 define('SKIP_DEMO9', TRUE);
 define('SKIP_DEMO10', TRUE);
+define('SKIP_DEMO11', TRUE);
 
 /****************************************************************************
 There are two ways to connect to the Microsoft Dynamics 2011 CRM server.
@@ -40,7 +41,7 @@ then parsed to determine the correct way to login, and the addresses to use
 /* Connect to the Dynamics CRM 2011 server */
 echo date('Y-m-d H:i:s')."\tConnecting to the CRM... ";
 $crmConnector = new DynamicsCRM2011_Connector($discoveryServiceURI, $organizationUniqueName, $loginUsername, $loginPassword);
-echo 'Done'.PHP_EOL;
+echo 'Done at '.date('Y-m-d H:i:s').PHP_EOL;
 
 /****************************************************************************
 The second option is more focussed on interactive systems, i.e. web-based 
@@ -329,7 +330,7 @@ END;
 if (!defined('SKIP_DEMO8')) {
 	echo date('Y-m-d H:i:s')."\tFetching details of Cases data... ";
 	$caseEntityData = $crmConnector->retrieveEntity('incident', NULL, 'Entity Attributes');
-	echo 'Done'.PHP_EOL;
+	echo 'Done at '.date('Y-m-d H:i:s').PHP_EOL;
 	//echo PHP_EOL.'Start of XML Object data...'.PHP_EOL;
 	//echo $caseEntityData->asXML();
 	//echo PHP_EOL.'End of XML Object data...'.PHP_EOL;
@@ -485,4 +486,53 @@ END;
 	
 }
 
-?>
+/* Example 11: Aggregate in FetchXML */
+if (!defined('SKIP_DEMO11')) {
+	$queryXML = <<<END
+<fetch mapping="logical" distinct="false" aggregate="true">
+  <entity name="incident">
+    <attribute name="statuscode" groupby="true" alias="statuscode" />
+    <attribute name="createdon" groupby="true" dategrouping="year" alias="year" />
+    <attribute name="createdon" groupby="true" dategrouping="month" alias="month" />
+    <attribute name="createdon" alias="count" aggregate="count" />
+    <order alias='year' descending='false' />
+    <order alias='month' descending='false' />
+    <filter type="and">
+      <filter type="or">
+        <filter type="and">
+          <condition attribute="sfmig_truelastmodifieddate" operator="last-x-days" value="14" />
+          <condition attribute="statuscodename" operator="in">
+            <value>Solution Delivered</value>
+            <value>Closed</value>
+            <value>Canceled</value>
+          </condition>
+        </filter>
+        <condition attribute="statuscodename" operator="not-in">
+          <value>Solution Delivered</value>
+          <value>Closed</value>
+          <value>Canceled</value>
+        </condition>
+      </filter>
+    </filter>
+    <link-entity name="product" from="productid" to="productid" alias="productid">
+      <filter type="and">
+        <condition attribute="aldata_productfamilyname" operator="eq" value="Gold" />
+      </filter>
+    </link-entity>
+    <link-entity name="aldata_clearquestbug" from="aldata_case" to="incidentid" alias="clearquest_bugs" link-type="outer">
+      <attribute name="aldata_clearquestbugid" aggregate="count" alias="cq_card_count" />
+    </link-entity>
+  </entity>
+</fetch>
+END;
+	$data = $crmConnector->retrieveMultiple($queryXML);
+	echo "Got ".$data->Count." records...".PHP_EOL;
+	$statusCodes = $data->Entities[0]->getOptionSetValues('StatusCode');
+	foreach($data->Entities as $aggregate_record) {
+		echo "Year = ".$aggregate_record->Year
+				." / Month = ".$aggregate_record->Month
+				." / Status = ".$statusCodes[$aggregate_record->StatusCode]
+				." / Cases = ".$aggregate_record->Count
+				." / CQ Cards = ".$aggregate_record->CQ_Card_Count.PHP_EOL;
+	}
+}
