@@ -303,6 +303,9 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			/* Container for the final value */
 			$optionSetValue = NULL;
 			
+			/* Handle passing a Boolean value */
+			if ($value === TRUE) $value = 1;
+			elseif ($value === FALSE) $value = 0;
 			/* Handle passing a String value */
 			if (is_string($value)) {
 				/* Look for an option with this label */
@@ -346,7 +349,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 						E_USER_WARNING);
 				return;
 			}
-		}	
+		}
 		/* Update the property value with whatever value was passed */
 		$this->propertyValues[$property]['Value'] = $value;
 		/* Mark the property as changed */
@@ -573,11 +576,14 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 							break;
 						case 'boolean':
 							/* Boolean - Just get the numerical value */
-							$xmlValue = $this->propertyValues[$property]['Value']->Value;
+							if (is_object($this->propertyValues[$property]['Value'])) 
+								$xmlValue = $this->propertyValues[$property]['Value']->Value;
+							else $xmlValue = $this->propertyValues[$property]['Value'];
 							break;
 						case 'string':
 						case 'int':
 						case 'decimal':
+						case 'double':
 						case 'guid':
 							/* No special handling for these types */
 							break;
@@ -592,9 +598,9 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					$valueNode->setAttribute('i:type', 'd:'.$xmlType);
 					$valueNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:d', $xmlTypeNS);
 					/* If there is a child node needed, append it */
-					if ($xmlValueChild != NULL) $valueNode->appendChild($xmlValueChild);
+					if ($xmlValueChild !== NULL) $valueNode->appendChild($xmlValueChild);
 					/* If there is a value, set it */
-					if ($xmlValue != NULL) $valueNode->appendChild(new DOMText($xmlValue));
+					if ($xmlValue !== NULL) $valueNode->appendChild(new DOMText($xmlValue));
 				}
 			}
 		}
@@ -735,6 +741,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					$storedValue = (strtolower($attributeValue) == 'true' ? true : false);
 					break;
 				case 'decimal':
+				case 'double':
 					/* Decimal - Cast the String to a Float */
 					$storedValue = (float)$attributeValue;
 					break;
@@ -976,6 +983,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				case 'State':
 				case 'Status':
 				case 'Decimal':
+				case 'Double':
 				case 'Uniqueidentifier':
 				case 'Memo':
 				case 'String':
@@ -1068,6 +1076,51 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		}
 		/* Property doesn't exist, return empty string */
 		return '';
+	}
+	
+	/** 
+	 * Reset the fields so this Entity can be used in a Create 
+	 * 
+	 * @param DynamicsCRM2011_Connector $conn - the connection that will be used to recreate this entity
+	 */
+	public function resetForCreate(DynamicsCRM2011_Connector $conn = NULL) {
+		/* Clear the ID */
+		$this->entityID = NULL;
+		/* If we're moving Server, reset the Domain */
+		if ($conn != NULL)  $this->setEntityDomain($conn);
+		
+		/* Loop through all the properties */
+		foreach ($this->properties as $property => $propertyDetails) {
+			/* Check if the property can be set on Create */
+			if ($propertyDetails['Create'] == false || $propertyDetails['Type'] == 'Uniqueidentifier') {
+				/* If the property can't be set on Create, clear it and mark it Unchanged */
+				$this->propertyValues[$property]['Changed'] = false;
+				$this->propertyValues[$property]['Value'] = NULL;
+			} elseif ($conn != NULL && $propertyDetails['isLookup'] && $this->propertyValues[$property]['Value'] != NULL) {
+				/* If the property is a non-null lookup, and we are moving server, find the new value */
+				$oldEntity = $this->propertyValues[$property]['Value'];
+				$newEntity = $conn->retrieveByName($oldEntity->entityLogicalName, $oldEntity->entityDisplayName, $oldEntity->DisplayName);
+				/* If we found the value, mark it as changed - if not, mark it as unchanged */
+				if (is_array($newEntity)) {
+					/* Multiple options found - log a warning, use the first one */
+					trigger_error('Multiple options for '.$property.' when moving to the new CRM instance: using first value found!', E_USER_WARNING);
+					$this->propertyValues[$property]['Value'] = $newEntity[0];
+					$this->propertyValues[$property]['Changed'] = true;
+				} elseif ($newEntity != NULL) {
+					/* One match found - use it */
+					$this->propertyValues[$property]['Value'] = $newEntity;
+					$this->propertyValues[$property]['Changed'] = true;
+				} else {
+					/* No matches found - log a warning */
+					trigger_error('No new value for '.$property.' when moving to the new CRM instance: clearing!', E_USER_WARNING);
+					$this->propertyValues[$property]['Value'] = NULL;
+					$this->propertyValues[$property]['Changed'] = false;
+				}			
+			} else {
+				/* Otherwise, leave as is and mark it changed if not NULL */
+				$this->propertyValues[$property]['Changed'] = ($this->propertyValues[$property]['Value'] != NULL);
+			}
+		}
 	}
 }
 
