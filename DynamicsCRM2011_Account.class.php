@@ -7,7 +7,7 @@ class DynamicsCRM2011_Account extends DynamicsCRM2011_Entity {
 	protected $entityDisplayName = 'name';
 
 	public function __toString() {
-		$description = 'Contact: '.$this->Name.' <'.$this->ID.'>';
+		$description = 'Account: '.$this->Name.' <'.$this->ID.'>';
 		return $description;
 	}
 }
