@@ -2425,6 +2425,41 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	}
 	
 	/**
+	 * Search for a particular Entity using the entity type and name only
+	 * 
+	 * @param String $entityLogicalName - Logical name of the entity to be found
+	 * @param String $searchField - Field to search in
+	 * @param String $searchValue - Text to search for
+	 * @return DynamicsCRM2011_Entity (subclass) a Strongly-Typed Entity minimal data (name and ID) for the Entity
+	 */
+	public function retrieveByName($entityLogicalName, $searchField, $searchValue) {
+		/* Build a query for the particular item we're searching for */
+		$queryXML = <<<END
+<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false">
+  <entity name="${entityLogicalName}">
+    <filter type="and">
+      <condition attribute="${searchField}" operator="eq" value="${searchValue}" />
+    </filter>
+  </entity>
+</fetch>
+END;
+		/* Launch the query */
+		$data = $this->retrieveMultiple($queryXML);
+		
+		/* Check how many results were found */
+		if ($data->Count == 1) {
+			/* Just one result - return it as is */
+			return $data->Entities[0];
+		} elseif ($data->Count == 0) {
+			/* No results - return NULL */
+			return NULL;
+		} else {
+			/* Multiple results - return the whole array */
+			return $data->Entities;
+		}
+	}
+	
+	/**
 	 * Set the CRM User that will be responsible for CRM updates from now on
 	 * 
 	 * @param DynamicsCRM2011_SystemUser $_crmUser
