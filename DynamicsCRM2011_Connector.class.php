@@ -2474,6 +2474,98 @@ END;
 	public function clearUserOverride() {
 		$this->callerId = NULL;
 	}
+	
+	/**
+	 * Send a CloseIncidentRequest request to the Dynamics CRM 2011 server and return...
+	 *
+	 * @param DynamicsCRM2011_Entity $entity Entity that is to be updated
+	 * @param int $state StateCode to set
+	 * @param int $status StatusCode to set (or NULL to use StateCode)
+	 * @return boolean indicator of success
+	 */
+	public function closeIncident(DynamicsCRM2011_IncidentResolution $_resolution, $status) {
+		/* Send the sequrity request and get a security token */
+		$securityToken = $this->getOrganizationSecurityToken();
+		/* Generate the XML for the Body of a CloseIncidentRequest request */
+		$executeNode = self::generateCloseIncidentRequest($_resolution, $status);
+	
+		if (self::$debugMode) echo PHP_EOL.'CloseIncident Request: '.PHP_EOL.$executeNode->C14N().PHP_EOL.PHP_EOL;
+	
+		/* Turn this into a SOAP request, and send it */
+		$setStateSoapRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationExecuteAction(), $securityToken, $executeNode, $this->callerId);
+		$soapResponse = self::getSoapResponse($this->organizationURI, $setStateSoapRequest);
+	
+		if (self::$debugMode) echo PHP_EOL.'CloseIncident Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
+	
+		/* Load the XML into a DOMDocument */
+		$soapResponseDOM = new DOMDocument();
+		$soapResponseDOM->loadXML($soapResponse);
+	
+		/* Find the ExecuteResponse */
+		$executeResponseNode = NULL;
+		foreach ($soapResponseDOM->getElementsByTagName('ExecuteResponse') as $node) {
+			$executeResponseNode = $node;
+			break;
+		}
+		unset($node);
+		if ($executeResponseNode == NULL) {
+			throw new Exception('Could not find ExecuteResponse node in XML returned from Server');
+			return FALSE;
+		}
+	
+		/* Find the ExecuteResult */
+		$executeResultNode = NULL;
+		foreach ($executeResponseNode->getElementsByTagName('ExecuteResult') as $node) {
+			$executeResultNode = $node;
+			break;
+		}
+		unset($node);
+		if ($executeResultNode == NULL) {
+			throw new Exception('Could not find ExecuteResult node in XML returned from Server');
+			return FALSE;
+		}
+	
+		/* Update occurred successfully */
+		return true;
+	}
+	
+	/**
+	 * Generate a CloseIncidentRequest
+	 * @ignore
+	 */
+	protected static function generateCloseIncidentRequest(DynamicsCRM2011_IncidentResolution $_resolution, $status) {
+		/* Generate the CloseIncidentRequest message */
+		$closeIncidentRequestDOM = new DOMDocument();
+		$executeNode = $closeIncidentRequestDOM->appendChild($closeIncidentRequestDOM->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts/Services', 'Execute'));
+		$requestNode = $executeNode->appendChild($closeIncidentRequestDOM->createElement('request'));
+		$requestNode->setAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'i:type', 'e:CloseIncidentRequest');
+		$requestNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:b', 'http://schemas.microsoft.com/xrm/2011/Contracts');
+		$requestNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:e', 'http://schemas.microsoft.com/crm/2011/Contracts');
+		$parametersNode = $requestNode->appendChild($closeIncidentRequestDOM->createElement('b:Parameters'));
+		$parametersNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:c', 'http://schemas.datacontract.org/2004/07/System.Collections.Generic');
+	
+		$keyValuePairNode1 = $parametersNode->appendChild($closeIncidentRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
+		$keyValuePairNode1->appendChild($closeIncidentRequestDOM->createElement('c:key', 'IncidentResolution'));
+		$valueNode1 = $keyValuePairNode1->appendChild($closeIncidentRequestDOM->createElement('c:value'));
+		$valueNode1->setAttribute('i:type', 'b:Entity');
+		$valueNode1->appendChild($closeIncidentRequestDOM->importNode($_resolution->getEntityDOM()->firstChild, true));
+		$valueNode1->appendChild($closeIncidentRequestDOM->createElement('b:EntityState'))->setAttribute('i:nil', 'true');
+		$valueNode1->appendChild($closeIncidentRequestDOM->createElement('b:FormattedValues'));
+		$valueNode1->appendChild($closeIncidentRequestDOM->createElement('b:Id', self::EmptyGUID));
+		$valueNode1->appendChild($closeIncidentRequestDOM->createElement('b:LogicalName', $_resolution->LogicalName));
+		$valueNode1->appendChild($closeIncidentRequestDOM->createElement('b:RelatedEntities'));
+	
+		$keyValuePairNode2 = $parametersNode->appendChild($closeIncidentRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
+		$keyValuePairNode2->appendChild($closeIncidentRequestDOM->createElement('c:key', 'Status'));
+		$valueNode2 = $keyValuePairNode2->appendChild($closeIncidentRequestDOM->createElement('c:value'));
+		$valueNode2->setAttribute('i:type', 'b:OptionSetValue');
+		$valueNode2->appendChild($closeIncidentRequestDOM->createElement('b:Value', $status));
+	
+		$requestNode->appendChild($closeIncidentRequestDOM->createElement('b:RequestId'))->setAttribute('i:nil', 'true');
+		$requestNode->appendChild($closeIncidentRequestDOM->createElement('b:RequestName', 'CloseIncident'));
+		/* Return the DOMNode */
+		return $executeNode;
+	}
 }
 
 ?>
