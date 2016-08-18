@@ -43,7 +43,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		}
 		/* Check we have a Logical Name for the Entity */
 		if ($this->entityLogicalName == NULL) {
-			throw new Execption('Cannot instantiate an abstract Entity - specify the Logical Name');
+			throw new Exception('Cannot instantiate an abstract Entity - specify the Logical Name');
 		}
 		/* Set the Domain that this Entity is associated with */
 		$this->setEntityDomain($conn);
@@ -584,6 +584,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 						case 'int':
 						case 'decimal':
 						case 'double':
+						case 'Money':
 						case 'guid':
 							/* No special handling for these types */
 							break;
@@ -742,6 +743,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					break;
 				case 'decimal':
 				case 'double':
+				case 'Money':
 					/* Decimal - Cast the String to a Float */
 					$storedValue = (float)$attributeValue;
 					break;
@@ -984,6 +986,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				case 'Status':
 				case 'Decimal':
 				case 'Double':
+				case 'Money':
 				case 'Uniqueidentifier':
 				case 'Memo':
 				case 'String':
