@@ -612,7 +612,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					/* Now create the XML Node for the Value */
 					$valueNode = $propertyNode->appendChild($entityDOM->createElement('c:value'));
 
-					if ($xmlValue !== null)
+					if ($xmlValue !== null || $xmlType == 'OptionSetValue')
 					{
 						/* Set the Type of the Value */
 						$valueNode->setAttribute('i:type', 'd:'.$xmlType);
