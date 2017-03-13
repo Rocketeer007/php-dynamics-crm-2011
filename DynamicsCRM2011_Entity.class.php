@@ -288,7 +288,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			return;
 		}
 		/* If this is a Lookup field, it MUST be set to an Entity of an appropriate type */
-		if ($this->properties[$property]['isLookup']) {
+		if ($this->properties[$property]['isLookup'] && !is_null($value)) {
 			/* Check the new value is an Entity */
 			if (!$value instanceOf self) {
 				$trace = debug_backtrace();
