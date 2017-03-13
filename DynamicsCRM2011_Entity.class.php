@@ -549,7 +549,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				/* Set the Property Name */
 				$propertyNode->appendChild($entityDOM->createElement('c:key', $property));
 				/* Check the Type of the Value */
-				if ($propertyDetails['isLookup']) {
+				if ($propertyDetails['isLookup'] && !is_null($this->propertyValues[$property]['Value'])) {
 					/* Special handling for Lookups - use an EntityReference, not the AttributeType */
 					$valueNode = $propertyNode->appendChild($entityDOM->createElement('c:value'));
 					$valueNode->setAttribute('i:type', 'b:EntityReference');
