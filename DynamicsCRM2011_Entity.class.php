@@ -352,7 +352,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			}
 
 			/* Check we found a valid OptionSetValue */
-			if ($optionSetValue != NULL) {
+			if ($optionSetValue != NULL || is_null($value)) {
 				/* Set the value to be retained */
 				$value = $optionSetValue;
 				/* Clear any AttributeOf related to this field */
@@ -585,10 +585,14 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 						case 'state':
 						case 'status':
 							/* OptionSetValue - Just get the numerical value, but as an XML structure */
-							$xmlType = 'OptionSetValue';
-							$xmlTypeNS = 'http://schemas.microsoft.com/xrm/2011/Contracts';
 							$xmlValue = NULL;
-							$xmlValueChild = $entityDOM->createElement('b:Value', $this->propertyValues[$property]['Value']->Value);
+
+							if (!is_null($this->propertyValues[$property]['Value']))
+							{
+								$xmlType = 'OptionSetValue';
+								$xmlTypeNS = 'http://schemas.microsoft.com/xrm/2011/Contracts';
+								$xmlValueChild = $entityDOM->createElement('b:Value', $this->propertyValues[$property]['Value']->Value);
+							}
 							break;
 						case 'boolean':
 							/* Boolean - Just get the numerical value */
