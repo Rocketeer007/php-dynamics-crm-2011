@@ -100,7 +100,6 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param string $_username the Username to login with
 	 * @param string $_password the Password of the user
 	 * @param boolean $_debug display debug information when accessing the server - not recommended in Production!
-	 * @return DynamicsCRM2011Connector
 	 */
 	function __construct($_discoveryURI, $_organizationUniqueName = NULL, $_username = NULL, $_password = NULL, $_debug = FALSE) {
 		/* Enable or disable debug mode */

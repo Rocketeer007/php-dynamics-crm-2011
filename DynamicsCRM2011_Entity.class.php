@@ -43,7 +43,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 
 	/**
 	 *
-	 * @param DynamicsCRM2011Connector $conn Connection to the Dynamics CRM server - should be active already.
+	 * @param DynamicsCRM2011_Connector $conn Connection to the Dynamics CRM server - should be active already.
 	 * @param String $_logicalName Allows constructing arbritrary Entities by setting the EntityLogicalName directly
 	 */
 	function __construct(DynamicsCRM2011_Connector $conn, $_logicalName = NULL) {
@@ -210,7 +210,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	/**
 	 *
 	 * @param String $property to be fetched
-	 * @return value of the property, if it exists & is readable
+	 * @return mixed Value of the property, if it exists & is readable
 	 */
 	public function __get($property) {
 		/* Handle special fields */
