@@ -2,6 +2,22 @@
 
 require_once 'DynamicsCRM2011.php';
 
+/**
+ *
+ * @property string $ID
+ * @property string $LOGICALNAME
+ * @property string $DISPLAYNAME
+ *
+ * @property integer $createdon
+ * @property integer $createdby
+ * @property integer $modifiedon
+ * @property integer $modifiedby
+ *
+ * @property DynamicsCRM2011_OptionSetValue $statecode
+ * @property DynamicsCRM2011_OptionSetValue $statuscode
+ *
+ * @property DynamicsCRM2011_Entity $ownerid
+ */
 class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	/**
 	 * Overridden in each child class
@@ -24,10 +40,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	private $entityID;
 	/* The Domain/URL of the Dynamics CRM 2011 Server where this is stored */
 	private $entityDomain = NULL;
-	
+
 	/**
-	 * 
-	 * @param DynamicsCRM2011Connector $conn Connection to the Dynamics CRM server - should be active already.
+	 *
+	 * @param DynamicsCRM2011_Connector $conn Connection to the Dynamics CRM server - should be active already.
 	 * @param String $_logicalName Allows constructing arbritrary Entities by setting the EntityLogicalName directly
 	 */
 	function __construct(DynamicsCRM2011_Connector $conn, $_logicalName = NULL) {
@@ -43,23 +59,23 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		}
 		/* Check we have a Logical Name for the Entity */
 		if ($this->entityLogicalName == NULL) {
-			throw new Execption('Cannot instantiate an abstract Entity - specify the Logical Name');
+			throw new Exception('Cannot instantiate an abstract Entity - specify the Logical Name');
 		}
 		/* Set the Domain that this Entity is associated with */
 		$this->setEntityDomain($conn);
 		/* Check if the Definition of this Entity is Cached on the Connector */
 		if ($conn->isEntityDefinitionCached($this->entityLogicalName)) {
 			/* Use the Cached values */
-			$isDefined = $conn->getCachedEntityDefinition($this->entityLogicalName, 
+			$isDefined = $conn->getCachedEntityDefinition($this->entityLogicalName,
 					$this->entityData, $this->properties, $this->propertyValues, $this->mandatories,
 					$this->optionSets, $this->entityDisplayName);
-			if ($isDefined) return;	
+			if ($isDefined) return;
 		}
-		
+
 		/* At this point, we assume Entity is not Cached */
 		/* So, get the full details of what an Incident is on this server */
 		$this->entityData = $conn->retrieveEntity($this->entityLogicalName);
-		
+
 		/* Next, we analyse this data and determine what Properties this Entity has */
 		foreach ($this->entityData->children('http://schemas.microsoft.com/xrm/2011/Metadata')->Attributes[0]->AttributeMetadata as $attribute) {
 			/* Determine the Type of the Attribute */
@@ -87,14 +103,14 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				$optionSetType = (String)$attribute->OptionSet->OptionSetType;
 				/* Array to store the Options for this OptionSet */
 				$optionSetValues = Array();
-				
+
 				/* Debug logging - Identify the OptionSet */
 				if (self::$debugMode) {
 					echo 'Attribute '.(String)$attribute->SchemaName.' is an OptionSet'.PHP_EOL;
 					echo "\tName:\t".$optionSetName.($optionSetGlobal ? ' (Global)' : '').PHP_EOL;
 					echo "\tType:\t".$optionSetType.PHP_EOL;
 				}
-				
+
 				/* Handle the different types of OptionSet */
 				switch ($optionSetType) {
 					case 'Boolean':
@@ -130,14 +146,14 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 						trigger_error('No OptionSet handling implemented for Type '.$optionSetType.' used by field '.(String)$attribute->SchemaName.' in Entity '.$this->entityLogicalName,
 								E_USER_WARNING);
 				}
-				
+
 				/* DebugLogging - Identify the OptionSet Values */
 				if (self::$debugMode) {
 					foreach ($optionSetValues as $value => $label) {
 						echo "\t\tOption ".$value.' => '.$label.PHP_EOL;
 					}
 				}
-				
+
 				/* Save this OptionSet in the Design */
 				if (array_key_exists($optionSetName, $this->optionSets)) {
 					/* If this isn't a Global OptionSet, warn of the name clash */
@@ -183,18 +199,18 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				$this->mandatories[strtolower((String)$attribute->LogicalName)] = $requiredLevel;
 			}
 		}
-		
+
 		/* Ensure that this Entity Definition is Cached for next time */
-		$conn->setCachedEntityDefinition($this->entityLogicalName, 
+		$conn->setCachedEntityDefinition($this->entityLogicalName,
 				$this->entityData, $this->properties, $this->propertyValues, $this->mandatories,
 				$this->optionSets, $this->entityDisplayName);
 		return;
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param String $property to be fetched
-	 * @return value of the property, if it exists & is readable
+	 * @return mixed Value of the property, if it exists & is readable
 	 */
 	public function __get($property) {
 		/* Handle special fields */
@@ -230,14 +246,14 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		}
 		/* Property doesn't exist - standard error */
 		$trace = debug_backtrace();
-		trigger_error('Undefined property via __get(): ' . $property 
+		trigger_error('Undefined property via __get(): ' . $property
 				. ' in ' . $trace[0]['file'] . ' on line ' . $trace[0]['line'],
 				E_USER_NOTICE);
 		return NULL;
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param String $property to be changed
 	 * @param mixed $value new value for the property
 	 */
@@ -260,7 +276,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Property doesn't exist - standard error */
 		if (!array_key_exists($property, $this->properties)) {
 			$trace = debug_backtrace();
-			trigger_error('Undefined property via __set() - ' . $this->entityLogicalName . ' does not support property: ' . $property 
+			trigger_error('Undefined property via __set() - ' . $this->entityLogicalName . ' does not support property: ' . $property
 					. ' in ' . $trace[0]['file'] . ' on line ' . $trace[0]['line'],
 					E_USER_NOTICE);
 			return;
@@ -272,7 +288,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			return;
 		}
 		/* If this is a Lookup field, it MUST be set to an Entity of an appropriate type */
-		if ($this->properties[$property]['isLookup']) {
+		if ($this->properties[$property]['isLookup'] && !is_null($value)) {
 			/* Check the new value is an Entity */
 			if (!$value instanceOf self) {
 				$trace = debug_backtrace();
@@ -302,7 +318,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			$optionSetName = $this->properties[$property]['OptionSet'];
 			/* Container for the final value */
 			$optionSetValue = NULL;
-			
+
 			/* Handle passing a Boolean value */
 			if ($value === TRUE) $value = 1;
 			elseif ($value === FALSE) $value = 0;
@@ -334,9 +350,9 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					$optionSetValue = $value;
 				}
 			}
-			
+
 			/* Check we found a valid OptionSetValue */
-			if ($optionSetValue != NULL) {
+			if ($optionSetValue != NULL || is_null($value)) {
 				/* Set the value to be retained */
 				$value = $optionSetValue;
 				/* Clear any AttributeOf related to this field */
@@ -355,7 +371,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Mark the property as changed */
 		$this->propertyValues[$property]['Changed'] = true;
 	}
-	
+
 	/**
 	 * Check if a property exists on this entity.  Called by isset().
 	 * Note that this implementation does not check if the property is actually a non-null value.
@@ -393,7 +409,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		}
 		return false;
 	}
-	
+
 	/**
 	 * Utility function to clear all "AttributeOf" fields relating to the base field
 	 * @param String $baseProperty
@@ -408,7 +424,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			}
 		}
 	}
-	
+
 	/**
 	 * @return String description of the Entity including Type, DisplayName and ID
 	 */
@@ -424,7 +440,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* EntityType: Display Name <GUID> */
 		return $this->entityLogicalName.$displayName.'<'.$this->getID().'>';
 	}
-	
+
 	/**
 	 * Reset all changed values to unchanged
 	 */
@@ -434,7 +450,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			$property['Changed'] = false;
 		}
 	}
-	
+
 	/**
 	 * Check if a property has been changed since creation of the Entity
 	 * @param String $property
@@ -453,7 +469,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		}
 		return $this->propertyValues[$property]['Changed'];
 	}
-	
+
 	/**
 	 * Private utility function to get the ID field; enforces NULL --> EmptyGUID
 	 * @ignore
@@ -462,7 +478,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		if ($this->entityID == NULL) return self::EmptyGUID;
 		else return $this->entityID;
 	}
-	
+
 	/**
 	 * Private utility function to set the ID field; enforces "Set Once" logic
 	 * @param String $value
@@ -475,7 +491,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		}
 		$this->entityID = $value;
 	}
-	
+
 	/**
 	 * Utility function to check all mandatory fields are filled
 	 * @param Array $details populated with any failures found
@@ -510,11 +526,11 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Return the result */
 		return $allMandatoriesFilled;
 	}
-	
+
 	/**
-	 * Create a DOMNode that represents this Entity, and can be used in a Create or Update 
+	 * Create a DOMNode that represents this Entity, and can be used in a Create or Update
 	 * request to the CRM server
-	 * 
+	 *
 	 * @param boolean $allFields indicates if we should include all fields, or only changed fields
 	 */
 	public function getEntityDOM($allFields = false) {
@@ -533,7 +549,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				/* Set the Property Name */
 				$propertyNode->appendChild($entityDOM->createElement('c:key', $property));
 				/* Check the Type of the Value */
-				if ($propertyDetails['isLookup']) {
+				if ($propertyDetails['isLookup'] && !is_null($this->propertyValues[$property]['Value'])) {
 					/* Special handling for Lookups - use an EntityReference, not the AttributeType */
 					$valueNode = $propertyNode->appendChild($entityDOM->createElement('c:value'));
 					$valueNode->setAttribute('i:type', 'b:EntityReference');
@@ -558,7 +574,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 							break;
 						case 'datetime':
 							/* Date/Time - Stored in the Entity as a PHP Date, needs to be XML format. Type is also mixed-case */
-							$xmlValue = gmdate("Y-m-d\TH:i:s\Z", $xmlValue);
+							if ($xmlValue !== null) $xmlValue = gmdate("Y-m-d\TH:i:s\Z", $xmlValue);
 							$xmlType = 'dateTime';
 							break;
 						case 'uniqueidentifier':
@@ -569,14 +585,18 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 						case 'state':
 						case 'status':
 							/* OptionSetValue - Just get the numerical value, but as an XML structure */
-							$xmlType = 'OptionSetValue';
-							$xmlTypeNS = 'http://schemas.microsoft.com/xrm/2011/Contracts';
 							$xmlValue = NULL;
-							$xmlValueChild = $entityDOM->createElement('b:Value', $this->propertyValues[$property]['Value']->Value);
+
+							if (!is_null($this->propertyValues[$property]['Value']))
+							{
+								$xmlType = 'OptionSetValue';
+								$xmlTypeNS = 'http://schemas.microsoft.com/xrm/2011/Contracts';
+								$xmlValueChild = $entityDOM->createElement('b:Value', $this->propertyValues[$property]['Value']->Value);
+							}
 							break;
 						case 'boolean':
 							/* Boolean - Just get the numerical value */
-							if (is_object($this->propertyValues[$property]['Value'])) 
+							if (is_object($this->propertyValues[$property]['Value']))
 								$xmlValue = $this->propertyValues[$property]['Value']->Value;
 							else $xmlValue = $this->propertyValues[$property]['Value'];
 							break;
@@ -584,6 +604,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 						case 'int':
 						case 'decimal':
 						case 'double':
+						case 'Money':
 						case 'guid':
 							/* No special handling for these types */
 							break;
@@ -594,11 +615,20 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					}
 					/* Now create the XML Node for the Value */
 					$valueNode = $propertyNode->appendChild($entityDOM->createElement('c:value'));
-					/* Set the Type of the Value */
-					$valueNode->setAttribute('i:type', 'd:'.$xmlType);
-					$valueNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:d', $xmlTypeNS);
-					/* If there is a child node needed, append it */
-					if ($xmlValueChild !== NULL) $valueNode->appendChild($xmlValueChild);
+
+					if ($xmlValue !== null || $xmlType == 'OptionSetValue')
+					{
+						/* Set the Type of the Value */
+						$valueNode->setAttribute('i:type', 'd:'.$xmlType);
+						$valueNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:d', $xmlTypeNS);
+						/* If there is a child node needed, append it */
+						if ($xmlValueChild !== NULL) $valueNode->appendChild($xmlValueChild);
+					}
+					else
+					{
+						$valueNode->setAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'i:nil', 'true');
+					}
+
 					/* If there is a value, set it */
 					if ($xmlValue !== NULL) $valueNode->appendChild(new DOMText($xmlValue));
 				}
@@ -619,10 +649,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Return the root node for the Entity */
 		return $entityNode;
 	}
-	
+
 	/**
 	 * Generate an Entity based on a particular Logical Name - will try to be as Strongly Typed as possible
-	 * 
+	 *
 	 * @param DynamicsCRM2011_Connector $conn
 	 * @param String $entityLogicalName
 	 * @return DynamicsCRM2011_Entity of the specified type, or a generic Entity if no Class exists
@@ -637,10 +667,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Create a new instance of the Class */
 		return new $entityClassName($conn, $entityLogicalName);
 	}
-	
+
 	/**
 	 * Generate an Entity from the DOM object that describes its properties
-	 * 
+	 *
 	 * @param DynamicsCRM2011_Connector $conn
 	 * @param String $entityLogicalName
 	 * @param DOMElement $domNode
@@ -649,14 +679,14 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 	public static function fromDOM(DynamicsCRM2011_Connector $conn, $entityLogicalName, DOMElement $domNode) {
 		/* Create a new instance of the appropriate Class */
 		$entity = self::fromLogicalName($conn, $entityLogicalName);
-		
+
 		/* Store values from the main RetrieveResult node */
 		$relatedEntitiesNode = NULL;
 		$attributesNode = NULL;
 		$formattedValuesNode = NULL;
 		$retrievedEntityName = NULL;
 		$entityState = NULL;
-		
+
  		/* Loop through the nodes directly beneath the RetrieveResult node */
  		foreach ($domNode->childNodes as $childNode) {
 			switch ($childNode->localName) {
@@ -681,26 +711,26 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		 			break;
 			}
  		}
- 		
+
  		/* Verify that the Retrieved Entity Name matches the expected one */
  		if ($retrievedEntityName != $entityLogicalName) {
  			trigger_error('Expected to get a '.$entityLogicalName.' but actually received a '.$retrievedEntityName.' from the server!',
  					E_USER_WARNING);
  		}
-		
+
  		/* Log the Entity State - Never seen this used! */
  		if (self::$debugMode) echo 'Entity <'.$entity->ID.'> has EntityState: '.$entityState.PHP_EOL;
- 		
+
  		/* Parse the Attributes & FormattedValues to set the properties of the Entity */
  		$entity->setAttributesFromDOM($conn, $attributesNode, $formattedValuesNode);
- 		
+
 		/* Before returning the Entity, reset it so all fields are marked unchanged */
 		$entity->reset();
 		return $entity;
 	}
-	
+
 	/**
-	 * 
+	 *
 	 * @param DynamicsCRM2011_Connector $conn
 	 * @param DOMElement $attributesNode
 	 * @param DOMElement $formattedValuesNode
@@ -713,7 +743,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		$keyValueNodes = $formattedValuesNode->getElementsByTagName('KeyValuePairOfstringstring');
 		/* Add the Formatted Values in the Key/Value Pairs of String/String to the Array */
 		self::addFormattedValues($formattedValues, $keyValueNodes);
-		
+
 		/* Identify the Attributes */
 		$keyValueNodes = $attributesNode->getElementsByTagName('KeyValuePairOfstringanyType');
 		foreach ($keyValueNodes as $keyValueNode) {
@@ -742,6 +772,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					break;
 				case 'decimal':
 				case 'double':
+				case 'Money':
 					/* Decimal - Cast the String to a Float */
 					$storedValue = (float)$attributeValue;
 					break;
@@ -876,7 +907,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 							$aliasAttributeValueNode->appendChild($aliasDoc->importNode($child, true));
 						}
 						/* Ensure we have the Type attribute, with Namespace */
-						$aliasAttributeValueNode->setAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'i:type', 
+						$aliasAttributeValueNode->setAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'i:type',
 								$keyValueNode->getElementsByTagName('value')->item(0)->getElementsByTagName('Value')->item(0)->getAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'type'));
 						/* Re-create the DOMElement for this Attribute's FormattedValue */
 						$aliasFormattedValuesNode = $aliasDoc->appendChild($aliasDoc->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts', 'b:FormattedValues'));
@@ -916,10 +947,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			}
 		}
 	}
-	
+
 	/**
 	 * Print a human-readable summary of the Entity with all details and fields
-	 * 
+	 *
 	 * @param boolean $recursive if TRUE, prints full details for all sub-entities as well
 	 * @param int $tabLevel the started level of indentation used (tabs)
 	 * @param boolean $printEmpty if TRUE, prints the details of NULL fields
@@ -941,7 +972,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			} else {
 				$propertyDetails = $this->localProperties[$property];
 			}
-			
+
 			/* In Recursive Mode, don't display "AttributeOf" fields */
 			if ($recursive && $propertyDetails['AttributeOf'] != NULL) continue;
 			/* Don't print NULL fields if printEmpty is FALSE */
@@ -984,6 +1015,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 				case 'Status':
 				case 'Decimal':
 				case 'Double':
+				case 'Money':
 				case 'Uniqueidentifier':
 				case 'Memo':
 				case 'String':
@@ -1002,10 +1034,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			}
 		}
 	}
-	
+
 	/**
 	 * Get a URL that can be used to directly open the Entity Details on the CRM
-	 * 
+	 *
 	 * @param boolean $absolute If true, include the full domain; otherwise, just return a relative URL.
 	 * @return NULL|string the URL for the Entity on the CRM
 	 */
@@ -1021,7 +1053,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 			return $entityURL;
 		}
 	}
-	
+
 	/**
 	 * Update the Domain Name that this Entity will use when constructing an absolute URL
 	 * @param DynamicsCRM2011_Connector $conn Connection to the Server currently used
@@ -1039,10 +1071,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Update the Entity */
 		$this->entityDomain = $domainURL;
 	}
-	
+
 	/**
 	 * Get the possible values for a particular OptionSet property
-	 * 
+	 *
 	 * @param String $property to list values for
 	 * @return Array list of the available options for this Property
 	 */
@@ -1056,10 +1088,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Return the available options for this property */
 		return $this->optionSets[$optionSetName];
 	}
-	
+
 	/**
 	 * Get the label for a field
-	 * 
+	 *
 	 * @param String $property
 	 * @return string
 	 */
@@ -1077,10 +1109,10 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		/* Property doesn't exist, return empty string */
 		return '';
 	}
-	
-	/** 
-	 * Reset the fields so this Entity can be used in a Create 
-	 * 
+
+	/**
+	 * Reset the fields so this Entity can be used in a Create
+	 *
 	 * @param DynamicsCRM2011_Connector $conn - the connection that will be used to recreate this entity
 	 */
 	public function resetForCreate(DynamicsCRM2011_Connector $conn = NULL) {
@@ -1088,7 +1120,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 		$this->entityID = NULL;
 		/* If we're moving Server, reset the Domain */
 		if ($conn != NULL)  $this->setEntityDomain($conn);
-		
+
 		/* Loop through all the properties */
 		foreach ($this->properties as $property => $propertyDetails) {
 			/* Check if the property can be set on Create */
@@ -1115,7 +1147,7 @@ class DynamicsCRM2011_Entity extends DynamicsCRM2011 {
 					trigger_error('No new value for '.$property.' when moving to the new CRM instance: clearing!', E_USER_WARNING);
 					$this->propertyValues[$property]['Value'] = NULL;
 					$this->propertyValues[$property]['Changed'] = false;
-				}			
+				}
 			} else {
 				/* Otherwise, leave as is and mark it changed if not NULL */
 				$this->propertyValues[$property]['Changed'] = ($this->propertyValues[$property]['Value'] != NULL);

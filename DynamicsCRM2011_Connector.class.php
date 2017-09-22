@@ -1,10 +1,10 @@
 <?php
 /**
  * DynamicsCRM2011_Connector.class.php
- * 
+ *
  * This file defines the DynamicsCRM2011_Connector class that can be used to access
  * the Microsoft Dynamics 2011 system through SOAP calls from PHP.
- * 
+ *
  * @author Nick Price
  * @version $Revision: 1.7 $
  * @package DynamicsCRM2011
@@ -38,59 +38,59 @@
  *
  */
 
- 
+
 /**
  * This class creates and manages SOAP connections to a Microsoft Dynamics CRM 2011 server
- * 
- * Authentication requirements are all handled automatically - although only 
- * Federation security is current supported, and an Exception is generated if 
+ *
+ * Authentication requirements are all handled automatically - although only
+ * Federation security is current supported, and an Exception is generated if
  * any other security method is detected on the server.
  *
- * The goal of this class is to make it as simple as possible to use SOAP data fetched 
+ * The goal of this class is to make it as simple as possible to use SOAP data fetched
  * directly from the Dynamics CRM server, without having to manually generate long stretches
  * of XML to be converted into SOAP calls.
- * 
- * Additionally, the returned data can be parsed in such a way that it can be used as 
+ *
+ * Additionally, the returned data can be parsed in such a way that it can be used as
  * simple PHP Objects, rather than complex XML to be parsed.
  */
 class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	/* Organization Details */
-	private $discoveryURI;
-	private $organizationUniqueName;
-	private $organizationURI;
+	protected $discoveryURI;
+	protected $organizationUniqueName;
+	protected $organizationURI;
 	/* Security Details */
-	private $security = Array();
-	private $callerId = NULL;
+	protected $security = Array();
+	protected $callerId = NULL;
 	/* Cached Discovery data */
-	private $discoveryDOM;
-	private $discoverySoapActions;
-	private $discoveryExecuteAction;
-	private $discoverySecurityPolicy;
+	protected $discoveryDOM;
+	protected $discoverySoapActions;
+	protected $discoveryExecuteAction;
+	protected $discoverySecurityPolicy;
 	/* Cached Organization data */
-	private $organizationDOM;
-	private $organizationSoapActions;
-	private $organizationCreateAction;
-	private $organizationDeleteAction;
-	private $organizationExecuteAction;
-	private $organizationRetrieveAction;
-	private $organizationRetrieveMultipleAction;
-	private $organizationUpdateAction;
-	private $organizationSecurityPolicy;
-	private $organizationSecurityToken;
+	protected $organizationDOM;
+	protected $organizationSoapActions;
+	protected $organizationCreateAction;
+	protected $organizationDeleteAction;
+	protected $organizationExecuteAction;
+	protected $organizationRetrieveAction;
+	protected $organizationRetrieveMultipleAction;
+	protected $organizationUpdateAction;
+	protected $organizationSecurityPolicy;
+	protected $organizationSecurityToken;
 	/* Cached Entity Definitions */
 	private $cachedEntityDefintions = Array();
 	/* Connection Details */
 	protected static $connectorTimeout = 600;
 	protected static $maximumRecords = self::MAX_CRM_RECORDS;
-	
+
 	/**
 	 * Create a new instance of the DynamicsCRM2011Connector
 	 *
 	 * This function is automatically called when a new instance is created.
 	 * At a minimum, you must provide the URL of the DiscoveryService (which can
-	 * be found on the Customizations / Developer Resources section of the Microsoft 
-	 * Dynamics CRM 2011 application), and the Unique Name of the Organization to connect 
-	 * to.  Note that it is often possible to connect to multiple Organizations from a 
+	 * be found on the Customizations / Developer Resources section of the Microsoft
+	 * Dynamics CRM 2011 application), and the Unique Name of the Organization to connect
+	 * to.  Note that it is often possible to connect to multiple Organizations from a
 	 * single Discovery Service, which is why this parameter is mandatory.
 	 *
 	 * Optionally, you may supply the username & password to login to the server immediately.
@@ -100,66 +100,65 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param string $_username the Username to login with
 	 * @param string $_password the Password of the user
 	 * @param boolean $_debug display debug information when accessing the server - not recommended in Production!
-	 * @return DynamicsCRM2011Connector
 	 */
 	function __construct($_discoveryURI, $_organizationUniqueName = NULL, $_username = NULL, $_password = NULL, $_debug = FALSE) {
 		/* Enable or disable debug mode */
 		self::$debugMode = $_debug;
-		
+
 		/* Check if we're using a cached login */
 		if (is_array($_discoveryURI)) {
 			return $this->loadLoginCache($_discoveryURI);
 		}
-		
+
 		/* Store the organization details */
 		$this->discoveryURI = $_discoveryURI;
 		$this->organizationUniqueName = $_organizationUniqueName;
-		
+
 		/* If either mandatory parameter is NULL, throw an Exception */
 		if ($this->discoveryURI == NULL || $this->organizationUniqueName == NULL) {
 			throw new BadMethodCallException(get_class($this).' constructor requires the Discovery URI and Organization Unique Name');
 		}
-		
+
 		/* Store the security details */
 		$this->security['username'] = $_username;
 		$this->security['password'] = $_password;
-		
+
 		/* Determine the Security used by this Organization */
 		$this->security['discovery_authmode'] = $this->getDiscoveryAuthenticationMode();
-		
+
 		/* Only Federation security is supported */
 		if ($this->security['discovery_authmode'] != 'Federation') {
 			throw new UnexpectedValueException(get_class($this).' does not support "'.$this->security['discovery_authmode'].'" authentication mode used by Discovery Service');
 		}
-		
+
 		/* Determine the address to send security requests to */
 		$this->security['discovery_authuri'] = $this->getDiscoveryAuthenticationAddress();
-		
+
 		/* Store the Security Service Endpoint for future use */
 		$this->security['discovery_authendpoint'] = $this->getFederationSecurityURI('discovery');
-		
+
 		/* If we already have all the Discovery Security details, determine the Organization URI */
 		if ($this->checkSecurity('discovery'))
 			$this->organizationURI = $this->getOrganizationURI();
 	}
-	
+
 	/**
 	 * Set the Federation Security Details for the Discovery Service
-	 * 
+	 *
 	 * If the constructor was called without the username and password, you must call
 	 * this function to login to the server.  Otherwise, all future calls to functions
 	 * to retrieve data will fail.
 	  *
 	 * Note that the current implementation assumes that only one login and password
 	 * is required for both the Discovery and Organization services.
-	 * 
+	 *
 	 * Once the login details are provided, the system will connect to the Discovery service
-	 * and find the URL for the Organization Service for the Organization specified in the 
+	 * and find the URL for the Organization Service for the Organization specified in the
 	 * constructor.
-	 * 
+	 *
 	 * @param string $_username the Username to login with
 	 * @param string $_password the Password of the user
-	 * @return boolean indication as to whether the login details were successfully used to fetch the 
+	 * @return boolean indication as to whether the login details were successfully used to fetch the
 	 * Organization service URL
 	 * @throws Exception if the username or password is missing, or if the system does not use Federation security
 	 */
@@ -180,7 +179,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		if ($this->organizationURI == NULL) return FALSE;
 		return TRUE;
 	}
-	
+
 	/**
 	 * Get the Discovery URL which is currently in use
 	 * @return string the URL of the Discovery Service
@@ -188,7 +187,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	public function getDiscoveryURI() {
 		return $this->discoveryURI;
 	}
-	
+
 	/**
 	 * Get the Organization Unique Name which is currently in use
 	 * @return string the Unique Name of the Organization
@@ -196,7 +195,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	public function getOrganization() {
 		return $this->organizationUniqueName;
 	}
-	
+
 	/**
 	 * Get the maximum records for a query
 	 * @return int the maximum records that will be returned from RetrieveMultiple per page
@@ -204,7 +203,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	public static function getMaximumRecords() {
 		return self::$maximumRecords;
 	}
-	
+
 	/**
 	 * Set the maximum records for a query
 	 * @param int $_maximumRecords the maximum number of records to fetch per page
@@ -213,7 +212,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		if (!is_int($_maximumRecords)) return;
 		self::$maximumRecords = $_maximumRecords;
 	}
-	
+
 	/**
 	 * Get the connector timeout value
 	 * @return int the maximum time the connector will wait for a response from the CRM in seconds
@@ -221,7 +220,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	public static function getConnectorTimeout() {
 		return self::$connectorTimeout;
 	}
-	
+
 	/**
 	 * Set the connector timeout value
 	 * @param int $_connectorTimeout maximum time the connector will wait for a response from the CRM in seconds
@@ -230,31 +229,31 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		if (!is_int($_connectorTimeout)) return;
 		self::$connectorTimeout = $_connectorTimeout;
 	}
-	
+
 	/**
 	 * Get the Discovery URL which is currently in use
 	 * @return string the URL of the Organization service
-	 * @throws Exception if the Discovery Service security details have not been set, 
+	 * @throws Exception if the Discovery Service security details have not been set,
 	 * or the Organization Service URL cannot be found for the current Organization
 	 */
 	public function getOrganizationURI() {
 		/* If it's set, return the details from the class instance */
 		if ($this->organizationURI != NULL) return $this->organizationURI;
-		
+
 		/* Check we have the appropriate security details for the Discovery Service */
 		if ($this->checkSecurity('discovery') == FALSE)
 			throw new Exception('Cannot determine Organization URI before Discovery Service Security Details are set!');
-		
+
 		/* Request a Security Token for the Discovery Service */
 		$securityToken = $this->requestSecurityToken($this->security['discovery_authendpoint'], $this->discoveryURI, $this->security['username'], $this->security['password']);
-		
+
 		/* Determine the Soap Action for the Execute method of the Discovery Service */
 		$discoveryServiceSoapAction = $this->getDiscoveryExecuteAction();
-		
+
 		/* Generate a Soap Request for the Retrieve Organization Request method of the Discovery Service */
 		$discoverySoapRequest = self::generateSoapRequest($this->discoveryURI, $discoveryServiceSoapAction, $securityToken, self::generateRetrieveOrganizationRequest());
-		$discovery_data = self::getSoapResponse($this->discoveryURI, $discoverySoapRequest);
-		
+		$discovery_data = static::getSoapResponse($this->discoveryURI, $discoverySoapRequest);
+
 		/* Parse the returned data to determine the correct EndPoint for the OrganizationService for the selected Organization */
 		$organizationServiceURI = NULL;
 		$discoveryDOM = new DOMDocument(); $discoveryDOM->loadXML($discovery_data);
@@ -282,7 +281,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$this->cacheOrganizationDetails();
 		return $organizationServiceURI;
 	}
-	
+
 	/**
 	 * Utility function to get the details of the Organization
 	 * Determines the Authenticaion mode, Authentication URL & Endpoint and SoapAction
@@ -291,25 +290,25 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	private function cacheOrganizationDetails() {
 		/* Check if this is already done... */
 		if ($this->organizationSoapActions != NULL) return;
-		
+
 		/* Determine the Security used by this Organization */
 		$this->security['organization_authmode'] = $this->getOrganizationAuthenticationMode();
-		
+
 		/* Only Federation security is supported */
 		if ($this->security['organization_authmode'] != 'Federation') {
 			throw new UnexpectedValueException(get_class($this).' does not support "'.$this->security['organization_authmode'].'" authentication mode used by Organization Service');
 		}
-		
+
 		/* Determine the address to send security requests to */
 		$this->security['organization_authuri'] = $this->getOrganizationAuthenticationAddress();
 		/* Store the Security Service Endpoint for future use */
 		$this->security['organization_authendpoint'] = $this->getFederationSecurityURI('organization');
-		
+
 		/* Determine the Soap Action for the Execute method of the Organization Service */
 		$organizationExecuteAction = $this->getOrganizationExecuteAction();
-		
+
 	}
-	
+
 	/**
 	 * Utility function to get the SoapAction for the Discovery Service
 	 * @ignore
@@ -320,10 +319,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			$actions = $this->getAllDiscoverySoapActions();
 			$this->discoveryExecuteAction = $actions['Execute'];
 		}
-		
+
 		return $this->discoveryExecuteAction;
 	}
-	
+
 	/**
 	 * Utility function to get the SoapAction for the Execute method of the Organization Service
 	 * @ignore
@@ -334,10 +333,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			$actions = $this->getAllOrganizationSoapActions();
 			$this->organizationExecuteAction = $actions['Execute'];
 		}
-		
+
 		return $this->organizationExecuteAction;
 	}
-	
+
 	/**
 	 * Utility function to get the SoapAction for the RetrieveMultiple method
 	 * @ignore
@@ -348,10 +347,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			$actions = $this->getAllOrganizationSoapActions();
 			$this->organizationRetrieveMultipleAction = $actions['RetrieveMultiple'];
 		}
-		
+
 		return $this->organizationRetrieveMultipleAction;
 	}
-	
+
 	/**
 	 * Utility function to get the SoapAction for the Retrieve method
 	 * @ignore
@@ -362,10 +361,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			$actions = $this->getAllOrganizationSoapActions();
 			$this->organizationRetrieveAction = $actions['Retrieve'];
 		}
-		
+
 		return $this->organizationRetrieveAction;
 	}
-	
+
 	/**
 	 * Utility function to get the SoapAction for the Create method
 	 * @ignore
@@ -376,10 +375,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			$actions = $this->getAllOrganizationSoapActions();
 			$this->organizationCreateAction = $actions['Create'];
 		}
-	
+
 		return $this->organizationCreateAction;
 	}
-	
+
 	/**
 	 * Utility function to get the SoapAction for the Delete method
 	 * @ignore
@@ -390,10 +389,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			$actions = $this->getAllOrganizationSoapActions();
 			$this->organizationDeleteAction = $actions['Delete'];
 		}
-	
+
 		return $this->organizationDeleteAction;
 	}
-	
+
 	/**
 	 * Utility function to get the SoapAction for the Update method
 	 * @ignore
@@ -404,10 +403,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			$actions = $this->getAllOrganizationSoapActions();
 			$this->organizationUpdateAction = $actions['Update'];
 		}
-	
+
 		return $this->organizationUpdateAction;
 	}
-	
+
 	/**
 	 * Utility function to validate the security details for the selected service
 	 * @return boolean indicator showing if the security details are okay
@@ -422,7 +421,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		}
 		return FALSE;
 	}
-	
+
 	/**
 	 * Utility function to validate Federation security details for the selected service
 	 * Checks the Authentication Mode is Federation, and verifies all the necessary data exists
@@ -438,7 +437,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		}
 		return TRUE;
 	}
-	
+
 	/**
 	 * Utility function to generate the XML for a Retrieve Organization request
 	 * This XML can be sent as a SOAP message to the Discovery Service to determine all Organizations
@@ -453,41 +452,41 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$requestNode->setAttributeNS('http://www.w3.org/2001/XMLSchema-instance', 'i:type', 'RetrieveOrganizationsRequest');
 		$requestNode->appendChild($retrieveOrganizationRequestDOM->createElement('AccessType', 'Default'));
 		$requestNode->appendChild($retrieveOrganizationRequestDOM->createElement('Release', 'Current'));
-		
+
 		return $executeNode;
 	}
-	
+
 	/**
-	 * Get the SOAP Endpoint for the Federation Security service 
+	 * Get the SOAP Endpoint for the Federation Security service
 	 * @ignore
 	 */
 	protected function getFederationSecurityURI($service) {
 		/* If it's set, return the details from the Security array */
-		if (isset($this->security[$service.'_authendpoint'])) 
+		if (isset($this->security[$service.'_authendpoint']))
 			return $this->security[$service.'_authendpoint'];
-		
+
 		/* Fetch the WSDL for the Authentication Service as a parseable DOM Document */
 		if (self::$debugMode) echo 'Getting WSDL data from: '.$this->security[$service.'_authuri'].PHP_EOL;
 		$authenticationDOM = new DOMDocument();
 		@$authenticationDOM->load($this->security[$service.'_authuri']);
 		/* Flatten the WSDL and include all the Imports */
 		$this->mergeWSDLImports($authenticationDOM);
-		
+
 		// Note: Find the real end-point to use for my security request - for now, we hard-code to Trust13 Username & Password using known values
 		// See http://code.google.com/p/php-dynamics-crm-2011/issues/detail?id=4
 		$authEndpoint = self::getTrust13UsernameAddress($authenticationDOM);
 		return $authEndpoint;
 	}
-	
+
 	/**
-	 * Return the Authentication Mode used by the Discovery service 
+	 * Return the Authentication Mode used by the Discovery service
 	 * @ignore
 	 */
 	protected function getDiscoveryAuthenticationMode() {
 		/* If it's set, return the details from the Security array */
-		if (isset($this->security['discovery_authmode'])) 
+		if (isset($this->security['discovery_authmode']))
 			return $this->security['discovery_authmode'];
-		
+
 		/* Get the Discovery DOM */
 		$discoveryDOM = $this->getDiscoveryDOM();
 		/* Get the Security Policy for the Organization Service from the WSDL */
@@ -496,16 +495,16 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$authType = $this->discoverySecurityPolicy->getElementsByTagName('Authentication')->item(0)->textContent;
 		return $authType;
 	}
-	
+
 	/**
-	 * Return the Authentication Mode used by the Organization service 
+	 * Return the Authentication Mode used by the Organization service
 	 * @ignore
 	 */
 	protected function getOrganizationAuthenticationMode() {
 		/* If it's set, return the details from the Security array */
-		if (isset($this->security['organization_authmode'])) 
+		if (isset($this->security['organization_authmode']))
 			return $this->security['organization_authmode'];
-		
+
 		/* Get the Organization DOM */
 		$organizationDOM = $this->getOrganizationDOM();
 		/* Get the Security Policy for the Organization Service from the WSDL */
@@ -514,16 +513,16 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$authType = $this->organizationSecurityPolicy->getElementsByTagName('Authentication')->item(0)->textContent;
 		return $authType;
 	}
-	
+
 	/**
-	 * Return the Authentication Address used by the Discovery service 
+	 * Return the Authentication Address used by the Discovery service
 	 * @ignore
 	 */
 	protected function getDiscoveryAuthenticationAddress() {
 		/* If it's set, return the details from the Security array */
-		if (isset($this->security['discovery_authuri'])) 
+		if (isset($this->security['discovery_authuri']))
 			return $this->security['discovery_authuri'];
-		
+
 		/* If we don't already have a Security Policy, get it */
 		if ($this->discoverySecurityPolicy == NULL) {
 			/* Get the Discovery DOM */
@@ -531,21 +530,21 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			/* Get the Security Policy for the Organization Service from the WSDL */
 			$this->discoverySecurityPolicy = self::findSecurityPolicy($discoveryDOM, 'DiscoveryService');
 		}
-		
+
 		/* Find the Authentication type used */
 		$authAddress = self::getFederatedSecurityAddress($this->discoverySecurityPolicy);
 		return $authAddress;
 	}
-	
+
 	/**
-	 * Return the Authentication Address used by the Organization service 
+	 * Return the Authentication Address used by the Organization service
 	 * @ignore
 	 */
 	protected function getOrganizationAuthenticationAddress() {
 		/* If it's set, return the details from the Security array */
-		if (isset($this->security['organization_authuri'])) 
+		if (isset($this->security['organization_authuri']))
 			return $this->security['organization_authuri'];
-		
+
 		/* If we don't already have a Security Policy, get it */
 		if ($this->organizationSecurityPolicy == NULL) {
 			/* Get the Organization DOM */
@@ -558,7 +557,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$authAddress = self::getFederatedSecurityAddress($this->organizationSecurityPolicy);
 		return $authAddress;
 	}
-	
+
 	/**
 	 * Fetch and flatten the Discovery Service WSDL as a DOM
 	 * @ignore
@@ -566,19 +565,19 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	protected function getDiscoveryDOM() {
 		/* If it's already been fetched, use the one we have */
 		if ($this->discoveryDOM != NULL) return $this->discoveryDOM;
-		
+
 		/* Fetch the WSDL for the Discovery Service as a parseable DOM Document */
 		if (self::$debugMode) echo 'Getting WSDL data from: '.$this->discoveryURI.'?wsdl'.PHP_EOL;
 		$discoveryDOM = new DOMDocument();
 		@$discoveryDOM->load($this->discoveryURI.'?wsdl');
 		/* Flatten the WSDL and include all the Imports */
 		$this->mergeWSDLImports($discoveryDOM);
-		
+
 		/* Cache the DOM in the current object */
 		$this->discoveryDOM = $discoveryDOM;
 		return $discoveryDOM;
 	}
-	
+
 	/**
 	 * Fetch and flatten the Organization Service WSDL as a DOM
 	 * @ignore
@@ -589,31 +588,31 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		if ($this->organizationURI == NULL) {
 			throw new Exception('Cannot get Organization DOM before determining Organization URI');
 		}
-		
-		
+
+
 		/* Fetch the WSDL for the Organization Service as a parseable DOM Document */
 		if (self::$debugMode) echo 'Getting WSDL data from: '.$this->organizationURI.'?wsdl'.PHP_EOL;
-		$organizationDOM = new DOMDocument(); 
+		$organizationDOM = new DOMDocument();
 		@$organizationDOM->load($this->organizationURI.'?wsdl');
 		/* Flatten the WSDL and include all the Imports */
 		$this->mergeWSDLImports($organizationDOM);
-		
+
 		/* Cache the DOM in the current object */
 		$this->organizationDOM = $organizationDOM;
 		return $organizationDOM;
 	}
-	
+
 	/**
-	 * Get the Trust Address for the Trust13UsernameMixed authentication method 
+	 * Get the Trust Address for the Trust13UsernameMixed authentication method
 	 * @ignore
 	 */
 	protected static function getTrust13UsernameAddress(DOMDocument $authenticationDOM) {
 		return self::getTrustAddress($authenticationDOM, 'UserNameWSTrustBinding_IWSTrust13Async');
 	}
-	
+
 	/**
-	 * Search the WSDL from an ADFS server to find the correct end-point for a 
-	 * call to RequestSecurityToken with a given set of parmameters 
+	 * Search the WSDL from an ADFS server to find the correct end-point for a
+	 * call to RequestSecurityToken with a given set of parmameters
 	 * @ignore
 	 */
 	protected static function getTrustAddress(DOMDocument $authenticationDOM, $trustName) {
@@ -641,10 +640,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the found URI */
 		return $authenticationURI;
 	}
-	
+
 	/**
-	 * Search a WSDL XML DOM for "import" tags and import the files into 
-	 * one large DOM for the entire WSDL structure 
+	 * Search a WSDL XML DOM for "import" tags and import the files into
+	 * one large DOM for the entire WSDL structure
 	 * @ignore
 	 */
 	protected function mergeWSDLImports(DOMNode &$wsdlDOM, $continued = false, DOMDocument &$newRootDocument = NULL) {
@@ -714,7 +713,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		}
 		return $wsdlDOM;
 	}
-	
+
 	/**
 	 * Search a Microsoft Dynamics CRM 2011 WSDL for the Security Policy for a given Service
 	 * @ignore
@@ -783,7 +782,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the selected node */
 		return $securityPolicyNode;
 	}
-	
+
 	/**
 	 * Search a Microsoft Dynamics CRM 2011 WSDL for all available Operations/SoapActions on a Service
 	 * @ignore
@@ -843,13 +842,13 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				unset($soap12OperationNode);
 			}
 		}
-		
+
 		/* Return the array of available actions */
 		return $operationArray;
 	}
-	
-	/** 
-	 * Get all the Operations & corresponding SoapActions for the DiscoveryService 
+
+	/**
+	 * Get all the Operations & corresponding SoapActions for the DiscoveryService
 	 */
 	public function getAllDiscoverySoapActions() {
 		/* If it is not cached, update the cache */
@@ -859,8 +858,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the cached value */
 		return $this->discoverySoapActions;
 	}
-	
-	/** 
+
+	/**
 	 * Get all the Operations & corresponding SoapActions for the OrganizationService
 	 */
 	public function getAllOrganizationSoapActions() {
@@ -871,7 +870,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the cached value */
 		return $this->organizationSoapActions;
 	}
-	
+
 	/**
 	 * Search a Microsoft Dynamics CRM 2011 WSDL for the SoapAction for a given Operation on a Service
 	 * @ignore
@@ -940,9 +939,9 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the selected node */
 		return $soapAction;
 	}
-	
+
 	/**
-	 * Search a Microsoft Dynamics CRM 2011 Security Policy for the Address for the Federated Security 
+	 * Search a Microsoft Dynamics CRM 2011 Security Policy for the Address for the Federated Security
 	 * @ignore
 	 */
 	protected static function getFederatedSecurityAddress(DOMNode $securityPolicyNode) {
@@ -991,16 +990,16 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		}
 		return $securityURL;
 	}
-	
+
 	/**
-	 * Request a Security Token from the ADFS server using Username & Password authentication 
+	 * Request a Security Token from the ADFS server using Username & Password authentication
 	 * @ignore
 	 */
 	protected function requestSecurityToken($securityServerURI, $loginEndpoint, $loginUsername, $loginPassword) {
 		/* Generate the Security Token Request XML */
 		$loginSoapRequest = self::getLoginXML($securityServerURI, $loginEndpoint, $loginUsername, $loginPassword);
 		/* Send the Security Token request */
-		$security_xml = self::getSoapResponse($securityServerURI, $loginSoapRequest);
+		$security_xml = static::getSoapResponse($securityServerURI, $loginSoapRequest);
 		/* Convert the XML into a DOMDocument */
 		$securityDOM = new DOMDocument();
 		$securityDOM->loadXML($security_xml);
@@ -1020,7 +1019,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$expiryTime = $securityDOM->getElementsByTagName("RequestSecurityTokenResponse")->item(0)->getElementsByTagName('Expires')->item(0)->textContent;
 		/* Convert it to a PHP Timestamp */
 		$expiryTime = self::parseTime(substr($expiryTime, 0, -5), '%Y-%m-%dT%H:%M:%S');
-		
+
 		/* Return an associative Array */
 		$securityToken = Array(
 				'securityToken' => $requestedSecurityToken,
@@ -1041,9 +1040,9 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return an associative Array */
 		return $securityToken;
 	}
-	
+
 	/**
-	 * Get the XML needed to send a login request to the Username & Password Trust service 
+	 * Get the XML needed to send a login request to the Username & Password Trust service
 	 * @ignore
 	 */
 	protected static function getLoginXML($securityServerURI, $loginEndpoint, $loginUsername, $loginPassword) {
@@ -1063,27 +1062,29 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$loginTimestamp->appendChild($loginSoapRequest->createElement('u:Expires', self::getExpiryTime().'Z'));
 		$loginUsernameToken = $loginSecurity->appendChild($loginSoapRequest->createElement('o:UsernameToken'));
 		$loginUsernameToken->setAttribute('u:Id', 'user');
+		$pass = $loginSoapRequest->createTextNode($loginPassword); // Force escaping of the password
+		$pass_str = $loginSoapRequest->saveXML($pass);
 		$loginUsernameToken->appendChild($loginSoapRequest->createElement('o:Username', $loginUsername));
-		$loginUsernameToken->appendChild($loginSoapRequest->createElement('o:Password', $loginPassword))->setAttribute('Type', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText');
-		
+		$loginUsernameToken->appendChild($loginSoapRequest->createElement('o:Password', $pass_str))->setAttribute('Type', 'http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordText');
+
 		$loginBody = $loginEnvelope->appendChild($loginSoapRequest->createElementNS('http://www.w3.org/2003/05/soap-envelope', 's:Body'));
 		$loginRST = $loginBody->appendChild($loginSoapRequest->createElementNS('http://docs.oasis-open.org/ws-sx/ws-trust/200512', 'trust:RequestSecurityToken'));
 		$loginAppliesTo = $loginRST->appendChild($loginSoapRequest->createElementNS('http://schemas.xmlsoap.org/ws/2004/09/policy', 'wsp:AppliesTo'));
 		$loginEndpointReference = $loginAppliesTo->appendChild($loginSoapRequest->createElement('a:EndpointReference'));
 		$loginEndpointReference->appendChild($loginSoapRequest->createElement('a:Address', $loginEndpoint));
 		$loginRST->appendChild($loginSoapRequest->createElement('trust:RequestType', 'http://docs.oasis-open.org/ws-sx/ws-trust/200512/Issue'));
-		
+
 		return $loginSoapRequest->saveXML($loginEnvelope);
 	}
-	
+
 	/**
-	 * Send the SOAP message, and get the response 
+	 * Send the SOAP message, and get the response
 	 * @ignore
 	 */
 	protected static function getSoapResponse($soapUrl, $content) {
 		/* Separate the provided URI into Path & Hostname sections */
 		$urlDetails = parse_url($soapUrl);
-		
+
 		// setup headers
 		$headers = array(
 				"POST ". $urlDetails['path'] ." HTTP/1.1",
@@ -1092,7 +1093,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				"Content-type: application/soap+xml; charset=UTF-8",
 				"Content-length: ".strlen($content),
 		);
-		
+
 		$cURLHandle = curl_init();
 		curl_setopt($cURLHandle, CURLOPT_URL, $soapUrl);
 		curl_setopt($cURLHandle, CURLOPT_RETURNTRANSFER, 1);
@@ -1112,9 +1113,9 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Check for HTTP errors */
 		$httpResponse = curl_getinfo($cURLHandle, CURLINFO_HTTP_CODE);
 		curl_close($cURLHandle);
-		
+
 		if (self::$debugMode) echo PHP_EOL.PHP_EOL.'SOAP Response:= '.PHP_EOL.$responseXML.PHP_EOL.PHP_EOL;
-		
+
 		/* Determine the Action in the SOAP Response */
 		$responseDOM = new DOMDocument();
 		$responseDOM->loadXML($responseXML);
@@ -1132,7 +1133,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				->getElementsByTagNameNS('http://www.w3.org/2003/05/soap-envelope', 'Header')->item(0)
 				->getElementsByTagNameNS('http://www.w3.org/2005/08/addressing', 'Action')->item(0)->textContent;
 		if (self::$debugMode) echo __FUNCTION__.': SOAP Action in returned XML is "'.$actionString.'"'.PHP_EOL;
-		
+
 		/* Handle known Error Actions */
 		if (in_array($actionString, self::$SOAPFaultActions)) {
 			// Get the Fault Code
@@ -1151,12 +1152,12 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				->getElementsByTagNameNS('http://www.w3.org/2003/05/soap-envelope', 'Text')->item(0)->nodeValue.PHP_EOL;
 			throw new SoapFault($faultCode, $faultString);
 		}
-		
+
 		return $responseXML;
 	}
-	
+
 	/**
-	 * Create the XML String for a Soap Request 
+	 * Create the XML String for a Soap Request
 	 * @ignore
 	 */
 	protected static function generateSoapRequest($serviceURI, $soapAction, $securityToken, DOMNode $bodyContentNode, $_callerId = NULL) {
@@ -1170,10 +1171,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Create the SOAP Body */
 		$soapBodyNode = $soapEnvelope->appendChild($soapRequestDOM->createElement('s:Body'));
 		$soapBodyNode->appendChild($soapRequestDOM->importNode($bodyContentNode, true));
-		
+
 		return $soapRequestDOM->saveXML($soapEnvelope);
 	}
-	
+
 	/**
 	 * Generate a Soap Header using the specified service URI and SoapAction
 	 * Include the details from the Security Token for login
@@ -1191,12 +1192,12 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$headerNode->appendChild($soapHeaderDOM->createElement('a:To', $serviceURI))->setAttribute('s:mustUnderstand', '1');
 		$securityHeaderNode = self::getSecurityHeaderNode($securityToken);
 		$headerNode->appendChild($soapHeaderDOM->importNode($securityHeaderNode, true));
-		
+
 		return $headerNode;
 	}
-	
+
 	/**
-	 * Generate a DOMNode for the o:Security header required for SOAP requests 
+	 * Generate a DOMNode for the o:Security header required for SOAP requests
 	 * @ignore
 	 */
 	protected static function getSecurityHeaderNode(Array $securityToken) {
@@ -1227,11 +1228,11 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$securityTokenReferenceNode = $keyInfoNode->appendChild($securityDOM->createElement('o:SecurityTokenReference'));
 		$securityTokenReferenceNode->setAttributeNS('http://docs.oasis-open.org/wss/oasis-wss-wssecurity-secext-1.1.xsd', 'k:TokenType', 'http://docs.oasis-open.org/wss/oasis-wss-saml-token-profile-1.1#SAMLV1.1');
 		$securityTokenReferenceNode->appendChild($securityDOM->createElement('o:KeyIdentifier', $securityToken['keyIdentifier']))->setAttribute('ValueType', 'http://docs.oasis-open.org/wss/oasis-wss-saml-token-profile-1.0#SAMLAssertionID');
-		
+
 		return $securityHeader;
 	}
-	
-	/** 
+
+	/**
 	 * Generate a Retrieve Multiple Request
 	 * @ignore
 	 */
@@ -1277,10 +1278,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the DOMNode */
 		return $retrieveMultipleNode;
 	}
-	
+
 	/**
 	 * Find the PageNumber in a PagingCookie
-	 * 
+	 *
 	 * @param String $pagingCookie
 	 * @ignore
 	 */
@@ -1291,8 +1292,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$pageNo = $pagingDOM->documentElement->getAttribute('page');
 		return (int)$pageNo;
 	}
-	
-	/** 
+
+	/**
 	 * Generate a Retrieve Request
 	 * @ignore
 	 */
@@ -1320,8 +1321,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the DOMNode */
 		return $retrieveNode;
 	}
-	
-	/** 
+
+	/**
 	 * Generate a Retrieve Record Change History Request
 	 * @ignore
 	 */
@@ -1347,8 +1348,8 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the DOMNode */
 		return $executeNode;
 	}
-	
-	/** 
+
+	/**
 	 * Generate a Retrieve Entity Request
 	 * @ignore
 	 */
@@ -1357,10 +1358,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Use ID by preference, if not set, default to 0s */
 		if ($entityId != NULL) $entityType = NULL;
 		else $entityId = self::EmptyGUID;
-		
+
 		/* If no entityFilters are supplied, assume "All" */
 		if ($entityFilters == NULL) $entityFilters = 'Entity Attributes Privileges Relationships';
-		
+
 		/* Generate the RetrieveEntityRequest message */
 		$retrieveEntityRequestDOM = new DOMDocument();
 		$executeNode = $retrieveEntityRequestDOM->appendChild($retrieveEntityRequestDOM->createElementNS('http://schemas.microsoft.com/xrm/2011/Contracts/Services', 'Execute'));
@@ -1399,16 +1400,16 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the DOMNode */
 		return $executeNode;
 	}
-	
+
 	/**
 	 * Add a list of Attributes to an Array of Attributes, using appropriate handling
 	 * of the Attribute type, and avoiding over-writing existing attributes
-	 * already in the array 
-	 * 
+	 * already in the array
+	 *
 	 * Optionally specify an Array of sub-keys, and a particular sub-key
 	 * - If provided, each sub-key in the Array will be created as an Object attribute,
 	 *   and the value will be set on the specified sub-key only (e.g. (New, Old) / New)
-	 * 
+	 *
 	 * @ignore
 	 */
 	protected static function addAttributes(Array &$targetArray, DOMNodeList $keyValueNodes, Array $keys = NULL, $key1 = NULL) {
@@ -1462,7 +1463,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			if ($keys == NULL) {
 				/* Assume that if there is a duplicate, it's a formatted version of this */
 				if (array_key_exists($attributeKey, $targetArray)) {
-					$responseDataArray[$attributeKey] = (Object)Array('Value' => $attributeValue, 
+					$responseDataArray[$attributeKey] = (Object)Array('Value' => $attributeValue,
 							'FormattedValue' => $targetArray[$attributeKey]);
 				} else {
 					$targetArray[$attributeKey] = $attributeValue;
@@ -1492,7 +1493,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			}
 		}
 	}
-	
+
 	/**
 	 * Parse the results of a RetrieveMultipleRequest into a useable PHP object
 	 * @param DynamicsCRM2011_Connector $conn
@@ -1557,12 +1558,12 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		}
 		/* Record the number of Entities */
 		$responseDataArray['Count'] = count($responseDataArray['Entities']);
-		
+
 		/* Convert the Array to a stdClass Object */
 		$responseData = (Object)$responseDataArray;
 		return $responseData;
 	}
-	
+
 	/**
 	 * Parse the results of a RetrieveRequest into a useable PHP object
 	 * @param DynamicsCRM2011_Connector $conn
@@ -1596,12 +1597,12 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			throw new Exception('Could not find RetrieveResult node in XML provided');
 			return FALSE;
 		}
-		
+
 		/* Generate a new Entity from the DOMNode */
 		$entity = DynamicsCRM2011_Entity::fromDOM($conn, $entityLogicalName, $retrieveResultNode);
 		return $entity;
 	}
-	
+
 	/**
 	 * Parse the results of a RetrieveRecordChangeHistory into a useable PHP object
 	 * @ignore
@@ -1645,7 +1646,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		foreach ($auditDetailCollectionNode->getElementsByTagName('AuditDetails')->item(0)->getElementsByTagName('AuditDetail') as $auditDetailNode) {
 			/* Create an Array to hold the AuditDetail properties */
 			$auditDetailArray = Array();
-			
+
 			/* Create an Array to hold the AuditRecord properties */
 			$auditRecordArray = Array();
 			/* Get the Attributes */
@@ -1658,13 +1659,13 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			self::addFormattedValues($auditRecordArray, $keyValueNodes);
 			/* Convert the Audit Details to an Object */
 			$auditDetailArray['AuditRecord'] = (Object)$auditRecordArray;
-			
+
 			//$auditDetailArray['InvalidNewValueAttributes'] = $auditDetailNode->getElementsByTagName('InvalidNewValueAttributes')->item(0)->C14N();
-			
+
 			/* Create an Array to hold the New & Old Value properties */
 			$valueArray = Array();
 			/* Get the New Attributes */
-			if ($auditDetailNode->getElementsByTagName('NewValue')->length > 0 && 
+			if ($auditDetailNode->getElementsByTagName('NewValue')->length > 0 &&
 					$auditDetailNode->getElementsByTagName('NewValue')->item(0)->getElementsByTagName('Attributes')->length > 0) {
 				/* Get the Attributes */
 				$keyValueNodes = $auditDetailNode->getElementsByTagName('NewValue')->item(0)
@@ -1680,7 +1681,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				self::addFormattedValues($valueArray, $keyValueNodes, Array('NewValue', 'OldValue'), 'NewValue');
 			}
 			/* Get the Old Attributes */
-			if ($auditDetailNode->getElementsByTagName('OldValue')->length > 0 && 
+			if ($auditDetailNode->getElementsByTagName('OldValue')->length > 0 &&
 					$auditDetailNode->getElementsByTagName('OldValue')->item(0)->getElementsByTagName('Attributes')->length > 0) {
 				/* Get the Attributes */
 				$keyValueNodes = $auditDetailNode->getElementsByTagName('OldValue')->item(0)
@@ -1699,17 +1700,17 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			/* Add the AuditDetail to the AuditDetails Array as a stdClass Object */
 			$responseDataArray['AuditDetails'][] = (Object)$auditDetailArray;
 		}
-		
+
 		/* Convert the Array to a stdClass Object */
 		$responseData = (Object)$responseDataArray;
-		
+
 		/* Sort the AuditDetails by CreatedOn in Ascending order */
 		$sortFunction = create_function('$a,$b', 'return ($a->AuditRecord->createdon->Value - $b->AuditRecord->createdon->Value);');
 		usort($responseData->AuditDetails, $sortFunction);
-		
+
 		return $responseData;
 	}
-	
+
 	/**
 	 * Parse the results of a RetrieveEntity into a useable PHP object
 	 * @ignore
@@ -1746,13 +1747,13 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		}
 		/* Assemble a simpleXML class for the details to return */
 		$responseData = simplexml_import_dom($entityMetadataNode);
-		
+
 		/* Return the SimpleXML object */
 		return $responseData;
 	}
-	
+
 	/**
-	 * Get the current Organization Service security token, or get a new one if necessary 
+	 * Get the current Organization Service security token, or get a new one if necessary
 	 * @ignore
 	 */
 	private function getOrganizationSecurityToken() {
@@ -1769,13 +1770,13 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Save the token, and return it */
 		return $this->organizationSecurityToken;
 	}
-	
+
 	/**
 	 * Send a RetrieveMultiple request to the Dynamics CRM 2011 server
 	 * and return the results as raw XML
 	 *
 	 * This is particularly useful when debugging the responses from the server
-	 * 
+	 *
 	 * @param string $queryXML the Fetch XML string (as generated by the Advanced Find tool on Microsoft Dynamics CRM 2011)
 	 * @param string $pagingCookie if multiple pages are returned, send the paging cookie to get pages 2 and onwards.  Use NULL to get the first page
 	 * @param integer $limitCount maximum number of records to be returned per page
@@ -1788,11 +1789,11 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$executeNode = self::generateRetrieveMultipleRequest($queryXML, $pagingCookie, $limitCount);
 		/* Turn this into a SOAP request, and send it */
 		$retrieveMultipleSoapRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationRetrieveMultipleAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $retrieveMultipleSoapRequest);
-		
+		$soapResponse = static::getSoapResponse($this->organizationURI, $retrieveMultipleSoapRequest);
+
 		return $soapResponse;
 	}
-	
+
 	/**
 	 * Send a RetrieveMultiple request to the Dynamics CRM 2011 server
 	 * and return the results as a structured Object
@@ -1822,7 +1823,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			}
 			/* Save the new Soap Data */
 			$soapData = $tmpSoapData;
-			
+
 			/* Check if the PagingCookie is present & needed */
 			if ($soapData->MoreRecords && $soapData->PagingCookie == NULL) {
 				/* Paging Cookie is not present in returned data, but is expected! */
@@ -1841,19 +1842,19 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				/* PagingCookie exists, or is not needed */
 				$pagingCookie = $soapData->PagingCookie;
 			}
-			
+
 			/* Loop while there are more records, and we want all pages */
 		} while ($soapData->MoreRecords && $allPages);
-		
+
 		/* Return the compiled structure */
 		return $soapData;
 	}
-	
+
 	/**
 	 * Send a RetrieveMultiple request to the Dynamics CRM 2011 server
 	 * and return the results as a structured Object
 	 * Each Entity returned is processed into a simple stdClass
-	 * 
+	 *
 	 * Note that this function is faster than using Entities, but not as strong
 	 * at handling complicated return types.
 	 *
@@ -1866,13 +1867,13 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	public function retrieveMultipleSimple($queryXML, $allPages = TRUE, $pagingCookie = NULL, $limitCount = NULL) {
 		return $this->retrieveMultiple($queryXML, $allPages, $pagingCookie, $limitCount, true);
 	}
-	
+
 	/**
 	 * Send a RetrieveRecordChangeHistory request to the Dynamics CRM 2011 server
 	 * and return the results as raw XML
 	 *
 	 * This is particularly useful when debugging the responses from the server
-	 * 
+	 *
 	 * @param string $entityType the LogicalName of the Entity to be retrieved (Incident, Account etc.)
 	 * @param string $entityId the internal Id of the Entity to be retrieved (without enclosing brackets)
 	 * @param string $pagingCookie if multiple pages are returned, send the paging cookie to get pages 2 and onwards.  Use NULL to get the first page
@@ -1885,11 +1886,11 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$executeNode = self::generateRetrieveRecordChangeHistoryRequest($entityType, $entityId, $pagingCookie);
 		/* Turn this into a SOAP request, and send it */
 		$retrieveRecordChangeHistorySoapRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationExecuteAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $retrieveRecordChangeHistorySoapRequest);
-		
+		$soapResponse = static::getSoapResponse($this->organizationURI, $retrieveRecordChangeHistorySoapRequest);
+
 		return $soapResponse;
 	}
-	
+
 	/**
 	 * Send a RetrieveRecordChangeHistory request to the Dynamics CRM 2011 server
 	 * and return the results as a structured Object
@@ -1920,18 +1921,18 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			/* Grab the Paging Cookie */
 			$pagingCookie = $soapData->PagingCookie;
 		} while ($soapData->MoreRecords && $allPages);
-		
+
 		return $soapData;
 	}
-	
+
 	/**
 	 * Send a Retrieve request to the Dynamics CRM 2011 server and return the results as raw XML
 	 * This function is typically used just after creating something (where you get the ID back
-	 * as the return value), as it is more efficient to use RetrieveMultiple to search directly if 
+	 * as the return value), as it is more efficient to use RetrieveMultiple to search directly if
 	 * you don't already have the ID.
 	 *
 	 * This is particularly useful when debugging the responses from the server
-	 * 
+	 *
 	 * @param DynamicsCRM2011_Entity $entity the Entity to retrieve - must have an ID specified
 	 * @param array $fieldSet array listing all fields to be fetched, or null to get all fields
 	 * @return string the raw XML returned by the server, including all SOAP Envelope, Header and Body data.
@@ -1946,15 +1947,15 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$executeNode = self::generateRetrieveRequest($entityType, $entityId, $fieldSet);
 		/* Turn this into a SOAP request, and send it */
 		$retrieveRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationRetrieveAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $retrieveRequest);
-		
+		$soapResponse = static::getSoapResponse($this->organizationURI, $retrieveRequest);
+
 		return $soapResponse;
 	}
-	
+
 	/**
 	 * Send a Retrieve request to the Dynamics CRM 2011 server and return the results as a structured Object
 	 * This function is typically used just after creating something (where you get the ID back
-	 * as the return value), as it is more efficient to use RetrieveMultiple to search directly if 
+	 * as the return value), as it is more efficient to use RetrieveMultiple to search directly if
 	 * you don't already have the ID.
 	 *
 	 * @param DynamicsCRM2011_Entity $entity the Entity to retrieve - must have an ID specified
@@ -1967,7 +1968,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			throw new Exception('Cannot Retrieve an Entity without an ID.');
 			return FALSE;
 		}
-		
+
 		/* Get the raw XML data */
 		$rawSoapResponse = $this->retrieveRaw($entity, $fieldSet);
 		/* Parse the raw XML data into an Object */
@@ -1975,12 +1976,12 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the structured object */
 		return $newEntity;
 	}
-	
+
 	/**
 	 * Send a RetrieveEntity request to the Dynamics CRM 2011 server and return the results as raw XML
 	 *
 	 * This is particularly useful when debugging the responses from the server
-	 * 
+	 *
 	 * @param string $entityType the LogicalName of the Entity to be retrieved (Incident, Account etc.)
 	 * @return string the raw XML returned by the server, including all SOAP Envelope, Header and Body data.
 	 */
@@ -1991,11 +1992,11 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$executeNode = self::generateRetrieveEntityRequest($entityType, $entityId, $entityFilters, $showUnpublished);
 		/* Turn this into a SOAP request, and send it */
 		$retrieveEntityRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationExecuteAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $retrieveEntityRequest);
-		
+		$soapResponse = static::getSoapResponse($this->organizationURI, $retrieveEntityRequest);
+
 		return $soapResponse;
 	}
-	
+
 	/**
 	 * Send a RetrieveEntity request to the Dynamics CRM 2011 server and return the results as a structured Object
 	 *
@@ -2012,10 +2013,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the structured object */
 		return $soapData;
 	}
-	
+
 	/**
 	 * Send a Create request to the Dynamics CRM 2011 server, and return the ID of the newly created Entity
-	 * 
+	 *
 	 * @param DynamicsCRM2011_Entity $entity the Entity to create
 	 */
 	public function create(DynamicsCRM2011_Entity &$entity) {
@@ -2024,24 +2025,24 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			throw new Exception('Cannot Create an Entity that already exists.');
 			return FALSE;
 		}
-		
+
 		/* Send the sequrity request and get a security token */
 		$securityToken = $this->getOrganizationSecurityToken();
 		/* Generate the XML for the Body of a Create request */
 		$createNode = self::generateCreateRequest($entity);
-		
+
 		if (self::$debugMode) echo PHP_EOL.'Create Request: '.PHP_EOL.$createNode->C14N().PHP_EOL.PHP_EOL;
-		
+
 		/* Turn this into a SOAP request, and send it */
 		$createRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationCreateAction(), $securityToken, $createNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $createRequest);
-		
+		$soapResponse = static::getSoapResponse($this->organizationURI, $createRequest);
+
 		if (self::$debugMode) echo PHP_EOL.'Create Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
-		
+
 		/* Load the XML into a DOMDocument */
 		$soapResponseDOM = new DOMDocument();
 		$soapResponseDOM->loadXML($soapResponse);
-		
+
 		/* Find the CreateResponse */
 		$createResponseNode = NULL;
 		foreach ($soapResponseDOM->getElementsByTagName('CreateResponse') as $node) {
@@ -2053,14 +2054,14 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			throw new Exception('Could not find CreateResponse node in XML returned from Server');
 			return FALSE;
 		}
-		
+
 		/* Get the EntityID from the CreateResult tag */
 		$entityID = $createResponseNode->getElementsByTagName('CreateResult')->item(0)->textContent;
 		$entity->ID = $entityID;
 		$entity->reset();
 		return $entityID;
 	}
-	
+
 	/**
 	 * Generate a Create Request
 	 * @ignore
@@ -2073,10 +2074,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the DOMNode */
 		return $createNode;
 	}
-	
+
 	/**
 	 * Check if an Entity Definition has been cached
-	 * 
+	 *
 	 * @param String $entityLogicalName Logical Name of the entity to check for in the Cache
 	 * @return boolean true if this Entity has been cached
 	 */
@@ -2088,10 +2089,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			return false;
 		}
 	}
-	
+
 	/**
 	 * Cache the definition of an Entity
-	 * 
+	 *
 	 * @param String $entityLogicalName
 	 * @param SimpleXMLElement $entityData
 	 * @param Array $propertiesArray
@@ -2100,18 +2101,18 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param Array $optionSetsArray
 	 * @param String $entityDisplayName
 	 */
-	public function setCachedEntityDefinition($entityLogicalName, 
+	public function setCachedEntityDefinition($entityLogicalName,
 			SimpleXMLElement $entityData, Array $propertiesArray, Array $propertyValuesArray,
 			Array $mandatoriesArray, Array $optionSetsArray, $entityDisplayName) {
 		/* Store the details of the Entity Definition in the Cache */
 		$this->cachedEntityDefintions[$entityLogicalName] = Array(
-				$entityData, $propertiesArray, $propertyValuesArray, 
+				$entityData, $propertiesArray, $propertyValuesArray,
 				$mandatoriesArray, $optionSetsArray, $entityDisplayName);
 	}
-	
+
 	/**
 	 * Get the Definition of an Entity from the Cache
-	 * 
+	 *
 	 * @param String $entityLogicalName
 	 * @param SimpleXMLElement $entityData
 	 * @param Array $propertiesArray
@@ -2121,7 +2122,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 	 * @param String $entityDisplayName
 	 * @return boolean true if the Cache was retrieved
 	 */
-	public function getCachedEntityDefinition($entityLogicalName, 
+	public function getCachedEntityDefinition($entityLogicalName,
 			&$entityData, Array &$propertiesArray, Array &$propertyValuesArray, Array &$mandatoriesArray,
 			Array &$optionSetsArray, &$entityDisplayName) {
 		/* Check that this Entity Definition has been Cached */
@@ -2150,7 +2151,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			return false;
 		}
 	}
-	
+
 	/**
 	 * Send a Delete request to the Dynamics CRM 2011 server, and return ...
 	 *
@@ -2162,24 +2163,24 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			throw new Exception('Cannot Delete an Entity without an ID.');
 			return FALSE;
 		}
-		
+
 		/* Send the sequrity request and get a security token */
 		$securityToken = $this->getOrganizationSecurityToken();
 		/* Generate the XML for the Body of a Delete request */
 		$deleteNode = self::generateDeleteRequest($entity);
-	
+
 		if (self::$debugMode) echo PHP_EOL.'Delete Request: '.PHP_EOL.$deleteNode->C14N().PHP_EOL.PHP_EOL;
-	
+
 		/* Turn this into a SOAP request, and send it */
 		$deleteRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationDeleteAction(), $securityToken, $deleteNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $deleteRequest);
-	
+		$soapResponse = static::getSoapResponse($this->organizationURI, $deleteRequest);
+
 		if (self::$debugMode) echo PHP_EOL.'Delete Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
-	
+
 		/* Load the XML into a DOMDocument */
 		$soapResponseDOM = new DOMDocument();
 		$soapResponseDOM->loadXML($soapResponse);
-	
+
  		/* Find the DeleteResponse */
  		$deleteResponseNode = NULL;
  		foreach ($soapResponseDOM->getElementsByTagName('DeleteResponse') as $node) {
@@ -2194,7 +2195,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
  		/* Delete occurred successfully */
 		return TRUE;
 	}
-	
+
 	/**
 	 * Generate a Delete Request
 	 * @ignore
@@ -2208,7 +2209,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the DOMNode */
 		return $deleteNode;
 	}
-	
+
 	/**
 	 * Send an Update request to the Dynamics CRM 2011 server, and return ...
 	 *
@@ -2220,24 +2221,24 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			throw new Exception('Cannot Update an Entity without an ID.');
 			return FALSE;
 		}
-		
+
 		/* Send the sequrity request and get a security token */
 		$securityToken = $this->getOrganizationSecurityToken();
 		/* Generate the XML for the Body of an Update request */
 		$updateNode = self::generateUpdateRequest($entity);
-	
+
 		if (self::$debugMode) echo PHP_EOL.'Update Request: '.PHP_EOL.$updateNode->C14N().PHP_EOL.PHP_EOL;
-	
+
 		/* Turn this into a SOAP request, and send it */
 		$updateRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationUpdateAction(), $securityToken, $updateNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $updateRequest);
-	
+		$soapResponse = static::getSoapResponse($this->organizationURI, $updateRequest);
+
 		if (self::$debugMode) echo PHP_EOL.'Update Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
-	
+
 		/* Load the XML into a DOMDocument */
 		$soapResponseDOM = new DOMDocument();
 		$soapResponseDOM->loadXML($soapResponse);
-	
+
 		/* Find the UpdateResponse */
 		$updateResponseNode = NULL;
 		foreach ($soapResponseDOM->getElementsByTagName('UpdateResponse') as $node) {
@@ -2252,7 +2253,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Update occurred successfully */
 		return $updateResponseNode->C14N();
 	}
-	
+
 	/**
 	 * Generate an Update Request
 	 * @ignore
@@ -2265,10 +2266,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Return the DOMNode */
 		return $updateNode;
 	}
-	
-	/** 
+
+	/**
 	 * Send a SetStateRequest request to the Dynamics CRM 2011 server and return...
-	 * 
+	 *
 	 * @param DynamicsCRM2011_Entity $entity Entity that is to be updated
 	 * @param int $state StateCode to set
 	 * @param int $status StatusCode to set (or NULL to use StateCode)
@@ -2281,19 +2282,19 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$securityToken = $this->getOrganizationSecurityToken();
 		/* Generate the XML for the Body of a RetrieveRecordChangeHistory request */
 		$executeNode = self::generateSetStateRequest($entity, $state, $status);
-		
+
 		if (self::$debugMode) echo PHP_EOL.'SetState Request: '.PHP_EOL.$executeNode->C14N().PHP_EOL.PHP_EOL;
-		
+
 		/* Turn this into a SOAP request, and send it */
 		$setStateSoapRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationExecuteAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $setStateSoapRequest);
-	
+		$soapResponse = static::getSoapResponse($this->organizationURI, $setStateSoapRequest);
+
 		if (self::$debugMode) echo PHP_EOL.'SetState Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
-	
+
 		/* Load the XML into a DOMDocument */
 		$soapResponseDOM = new DOMDocument();
 		$soapResponseDOM->loadXML($soapResponse);
-	
+
 		/* Find the ExecuteResponse */
 		$executeResponseNode = NULL;
 		foreach ($soapResponseDOM->getElementsByTagName('ExecuteResponse') as $node) {
@@ -2305,7 +2306,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			throw new Exception('Could not find ExecuteResponse node in XML returned from Server');
 			return FALSE;
 		}
-		
+
 		/* Find the ExecuteResult */
 		$executeResultNode = NULL;
 		foreach ($executeResponseNode->getElementsByTagName('ExecuteResult') as $node) {
@@ -2317,11 +2318,11 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 			throw new Exception('Could not find ExecuteResult node in XML returned from Server');
 			return FALSE;
 		}
-		
+
 		/* Update occurred successfully */
 		return true;
 	}
-	
+
 	/**
 	 * Generate a SetState Request
 	 * @ignore
@@ -2336,7 +2337,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$requestNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:c', 'http://schemas.microsoft.com/crm/2011/Contracts');
 		$parametersNode = $requestNode->appendChild($setStateRequestDOM->createElement('b:Parameters'));
 		$parametersNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:d', 'http://schemas.datacontract.org/2004/07/System.Collections.Generic');
-		
+
 		$keyValuePairNode1 = $parametersNode->appendChild($setStateRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
 		$keyValuePairNode1->appendChild($setStateRequestDOM->createElement('d:key', 'EntityMoniker'));
 		$valueNode1 = $keyValuePairNode1->appendChild($setStateRequestDOM->createElement('d:value'));
@@ -2344,29 +2345,29 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$valueNode1->appendChild($setStateRequestDOM->createElement('b:Id', $entity->ID));
 		$valueNode1->appendChild($setStateRequestDOM->createElement('b:LogicalName', $entity->LogicalName));
 		$valueNode1->appendChild($setStateRequestDOM->createElement('b:Name'))->setAttribute('i:nil', 'true');
-		
+
 		$keyValuePairNode2 = $parametersNode->appendChild($setStateRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
 		$keyValuePairNode2->appendChild($setStateRequestDOM->createElement('d:key', 'State'));
 		$valueNode2 = $keyValuePairNode2->appendChild($setStateRequestDOM->createElement('d:value'));
 		$valueNode2->setAttribute('i:type', 'b:OptionSetValue');
 		$valueNode2->appendChild($setStateRequestDOM->createElement('b:Value', $state));
-		
+
 		$keyValuePairNode3 = $parametersNode->appendChild($setStateRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
 		$keyValuePairNode3->appendChild($setStateRequestDOM->createElement('d:key', 'Status'));
 		$valueNode3 = $keyValuePairNode3->appendChild($setStateRequestDOM->createElement('d:value'));
 		$valueNode3->setAttribute('i:type', 'b:OptionSetValue');
 		$valueNode3->appendChild($setStateRequestDOM->createElement('b:Value', $status));
-		
+
 		$requestNode->appendChild($setStateRequestDOM->createElement('b:RequestId'))->setAttribute('i:nil', 'true');
 		$requestNode->appendChild($setStateRequestDOM->createElement('b:RequestName', 'SetState'));
 		/* Return the DOMNode */
 		return $executeNode;
 	}
-	
+
 	/**
 	 * Get all the details of the Connector that would be needed to
 	 * bypass the normal login process next time...
-	 * Note that the Entity definition cache, the DOMs and the security 
+	 * Note that the Entity definition cache, the DOMs and the security
 	 * policies are excluded from the Cache.
 	 * @return Array
 	 */
@@ -2394,7 +2395,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				self::$connectorTimeout,
 				self::$maximumRecords,);
 	}
-	
+
 	/**
 	 * Restore the cached details
 	 * @param Array $loginCache
@@ -2423,10 +2424,10 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 				self::$connectorTimeout,
 				self::$maximumRecords) = $loginCache;
 	}
-	
+
 	/**
 	 * Search for a particular Entity using the entity type and name only
-	 * 
+	 *
 	 * @param String $entityLogicalName - Logical name of the entity to be found
 	 * @param String $searchField - Field to search in
 	 * @param String $searchValue - Text to search for
@@ -2445,7 +2446,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 END;
 		/* Launch the query */
 		$data = $this->retrieveMultiple($queryXML);
-		
+
 		/* Check how many results were found */
 		if ($data->Count == 1) {
 			/* Just one result - return it as is */
@@ -2458,23 +2459,23 @@ END;
 			return $data->Entities;
 		}
 	}
-	
+
 	/**
 	 * Set the CRM User that will be responsible for CRM updates from now on
-	 * 
+	 *
 	 * @param DynamicsCRM2011_SystemUser $_crmUser
 	 */
 	public function setUserOverride(DynamicsCRM2011_SystemUser $_crmUser) {
 		$this->callerId = $_crmUser;
 	}
-	
+
 	/**
 	 * Reset the user for Creates and Updates back to the default
 	 */
 	public function clearUserOverride() {
 		$this->callerId = NULL;
 	}
-	
+
 	/**
 	 * Send a CloseIncidentRequest request to the Dynamics CRM 2011 server and return...
 	 *
@@ -2488,19 +2489,19 @@ END;
 		$securityToken = $this->getOrganizationSecurityToken();
 		/* Generate the XML for the Body of a CloseIncidentRequest request */
 		$executeNode = self::generateCloseIncidentRequest($_resolution, $status);
-	
+
 		if (self::$debugMode) echo PHP_EOL.'CloseIncident Request: '.PHP_EOL.$executeNode->C14N().PHP_EOL.PHP_EOL;
-	
+
 		/* Turn this into a SOAP request, and send it */
 		$setStateSoapRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationExecuteAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $setStateSoapRequest);
-	
+		$soapResponse = static::getSoapResponse($this->organizationURI, $setStateSoapRequest);
+
 		if (self::$debugMode) echo PHP_EOL.'CloseIncident Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
-	
+
 		/* Load the XML into a DOMDocument */
 		$soapResponseDOM = new DOMDocument();
 		$soapResponseDOM->loadXML($soapResponse);
-	
+
 		/* Find the ExecuteResponse */
 		$executeResponseNode = NULL;
 		foreach ($soapResponseDOM->getElementsByTagName('ExecuteResponse') as $node) {
@@ -2512,7 +2513,7 @@ END;
 			throw new Exception('Could not find ExecuteResponse node in XML returned from Server');
 			return FALSE;
 		}
-	
+
 		/* Find the ExecuteResult */
 		$executeResultNode = NULL;
 		foreach ($executeResponseNode->getElementsByTagName('ExecuteResult') as $node) {
@@ -2524,11 +2525,11 @@ END;
 			throw new Exception('Could not find ExecuteResult node in XML returned from Server');
 			return FALSE;
 		}
-	
+
 		/* Update occurred successfully */
 		return true;
 	}
-	
+
 	/**
 	 * Generate a CloseIncidentRequest
 	 * @ignore
@@ -2543,7 +2544,7 @@ END;
 		$requestNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:e', 'http://schemas.microsoft.com/crm/2011/Contracts');
 		$parametersNode = $requestNode->appendChild($closeIncidentRequestDOM->createElement('b:Parameters'));
 		$parametersNode->setAttributeNS('http://www.w3.org/2000/xmlns/', 'xmlns:c', 'http://schemas.datacontract.org/2004/07/System.Collections.Generic');
-	
+
 		$keyValuePairNode1 = $parametersNode->appendChild($closeIncidentRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
 		$keyValuePairNode1->appendChild($closeIncidentRequestDOM->createElement('c:key', 'IncidentResolution'));
 		$valueNode1 = $keyValuePairNode1->appendChild($closeIncidentRequestDOM->createElement('c:value'));
@@ -2554,13 +2555,13 @@ END;
 		$valueNode1->appendChild($closeIncidentRequestDOM->createElement('b:Id', self::EmptyGUID));
 		$valueNode1->appendChild($closeIncidentRequestDOM->createElement('b:LogicalName', $_resolution->LogicalName));
 		$valueNode1->appendChild($closeIncidentRequestDOM->createElement('b:RelatedEntities'));
-	
+
 		$keyValuePairNode2 = $parametersNode->appendChild($closeIncidentRequestDOM->createElement('b:KeyValuePairOfstringanyType'));
 		$keyValuePairNode2->appendChild($closeIncidentRequestDOM->createElement('c:key', 'Status'));
 		$valueNode2 = $keyValuePairNode2->appendChild($closeIncidentRequestDOM->createElement('c:value'));
 		$valueNode2->setAttribute('i:type', 'b:OptionSetValue');
 		$valueNode2->appendChild($closeIncidentRequestDOM->createElement('b:Value', $status));
-	
+
 		$requestNode->appendChild($closeIncidentRequestDOM->createElement('b:RequestId'))->setAttribute('i:nil', 'true');
 		$requestNode->appendChild($closeIncidentRequestDOM->createElement('b:RequestName', 'CloseIncident'));
 		/* Return the DOMNode */
