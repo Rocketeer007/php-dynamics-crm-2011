@@ -252,7 +252,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 
 		/* Generate a Soap Request for the Retrieve Organization Request method of the Discovery Service */
 		$discoverySoapRequest = self::generateSoapRequest($this->discoveryURI, $discoveryServiceSoapAction, $securityToken, self::generateRetrieveOrganizationRequest());
-		$discovery_data = self::getSoapResponse($this->discoveryURI, $discoverySoapRequest);
+		$discovery_data = static::getSoapResponse($this->discoveryURI, $discoverySoapRequest);
 
 		/* Parse the returned data to determine the correct EndPoint for the OrganizationService for the selected Organization */
 		$organizationServiceURI = NULL;
@@ -999,7 +999,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		/* Generate the Security Token Request XML */
 		$loginSoapRequest = self::getLoginXML($securityServerURI, $loginEndpoint, $loginUsername, $loginPassword);
 		/* Send the Security Token request */
-		$security_xml = self::getSoapResponse($securityServerURI, $loginSoapRequest);
+		$security_xml = static::getSoapResponse($securityServerURI, $loginSoapRequest);
 		/* Convert the XML into a DOMDocument */
 		$securityDOM = new DOMDocument();
 		$securityDOM->loadXML($security_xml);
@@ -1789,7 +1789,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$executeNode = self::generateRetrieveMultipleRequest($queryXML, $pagingCookie, $limitCount);
 		/* Turn this into a SOAP request, and send it */
 		$retrieveMultipleSoapRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationRetrieveMultipleAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $retrieveMultipleSoapRequest);
+		$soapResponse = static::getSoapResponse($this->organizationURI, $retrieveMultipleSoapRequest);
 
 		return $soapResponse;
 	}
@@ -1886,7 +1886,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$executeNode = self::generateRetrieveRecordChangeHistoryRequest($entityType, $entityId, $pagingCookie);
 		/* Turn this into a SOAP request, and send it */
 		$retrieveRecordChangeHistorySoapRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationExecuteAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $retrieveRecordChangeHistorySoapRequest);
+		$soapResponse = static::getSoapResponse($this->organizationURI, $retrieveRecordChangeHistorySoapRequest);
 
 		return $soapResponse;
 	}
@@ -1947,7 +1947,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$executeNode = self::generateRetrieveRequest($entityType, $entityId, $fieldSet);
 		/* Turn this into a SOAP request, and send it */
 		$retrieveRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationRetrieveAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $retrieveRequest);
+		$soapResponse = static::getSoapResponse($this->organizationURI, $retrieveRequest);
 
 		return $soapResponse;
 	}
@@ -1992,7 +1992,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 		$executeNode = self::generateRetrieveEntityRequest($entityType, $entityId, $entityFilters, $showUnpublished);
 		/* Turn this into a SOAP request, and send it */
 		$retrieveEntityRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationExecuteAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $retrieveEntityRequest);
+		$soapResponse = static::getSoapResponse($this->organizationURI, $retrieveEntityRequest);
 
 		return $soapResponse;
 	}
@@ -2035,7 +2035,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 
 		/* Turn this into a SOAP request, and send it */
 		$createRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationCreateAction(), $securityToken, $createNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $createRequest);
+		$soapResponse = static::getSoapResponse($this->organizationURI, $createRequest);
 
 		if (self::$debugMode) echo PHP_EOL.'Create Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
 
@@ -2173,7 +2173,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 
 		/* Turn this into a SOAP request, and send it */
 		$deleteRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationDeleteAction(), $securityToken, $deleteNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $deleteRequest);
+		$soapResponse = static::getSoapResponse($this->organizationURI, $deleteRequest);
 
 		if (self::$debugMode) echo PHP_EOL.'Delete Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
 
@@ -2231,7 +2231,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 
 		/* Turn this into a SOAP request, and send it */
 		$updateRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationUpdateAction(), $securityToken, $updateNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $updateRequest);
+		$soapResponse = static::getSoapResponse($this->organizationURI, $updateRequest);
 
 		if (self::$debugMode) echo PHP_EOL.'Update Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
 
@@ -2287,7 +2287,7 @@ class DynamicsCRM2011_Connector extends DynamicsCRM2011 {
 
 		/* Turn this into a SOAP request, and send it */
 		$setStateSoapRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationExecuteAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $setStateSoapRequest);
+		$soapResponse = static::getSoapResponse($this->organizationURI, $setStateSoapRequest);
 
 		if (self::$debugMode) echo PHP_EOL.'SetState Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
 
@@ -2494,7 +2494,7 @@ END;
 
 		/* Turn this into a SOAP request, and send it */
 		$setStateSoapRequest = self::generateSoapRequest($this->organizationURI, $this->getOrganizationExecuteAction(), $securityToken, $executeNode, $this->callerId);
-		$soapResponse = self::getSoapResponse($this->organizationURI, $setStateSoapRequest);
+		$soapResponse = static::getSoapResponse($this->organizationURI, $setStateSoapRequest);
 
 		if (self::$debugMode) echo PHP_EOL.'CloseIncident Response: '.PHP_EOL.$soapResponse.PHP_EOL.PHP_EOL;
 
